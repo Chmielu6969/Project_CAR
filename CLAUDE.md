@@ -2,7 +2,7 @@
 
 ## Cel projektu
 
-Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 4, działającego na płytce STM32 Nucleo F401RE. Pojazd ma jeździć autonomicznie po linii oraz omijać przeszkody za pomocą czujnika ultradźwiękowego HC-SR04.
+Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 3, działającego na płytce STM32 Nucleo F401RE. Pojazd ma jeździć autonomicznie po linii oraz omijać przeszkody za pomocą czujnika ultradźwiękowego HC-SR04.
 
 ---
 
@@ -33,13 +33,78 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 4, działające
 
 ---
 
-## Schemat podłączenia (skrót)
+## Schemat podłączenia
 
-**LCD** – tryb 4-bitowy: RS → PC10, E → PC12, D4–D7 → PC0–PC3, RW → GND
+### Wyświetlacz LCD (tryb 4-bit, HD44780)
 
-**Servo SG90** – sygnał PWM: żółty → PB6 (TIM4 CH1, AF2)
+| Pin LCD | Funkcja    | Pin Nucleo | Uwagi              |
+|---------|------------|------------|--------------------|
+| 1 (GND) | VSS        | GND        |                    |
+| 2 (VDD) | VCC        | +5V        |                    |
+| 3 (VO)  | Kontrast   | GND / pot. | pot. 10k zalecany  |
+| 4 (RS)  | RS         | PC10       | GPIO Output        |
+| 5 (RW)  | R/W        | GND        | na stałe           |
+| 6 (E)   | Enable     | PC12       | GPIO Output        |
+| 11 (D4) | DB4        | PC0        | GPIO Output        |
+| 12 (D5) | DB5        | PC1        | GPIO Output        |
+| 13 (D6) | DB6        | PC2        | GPIO Output        |
+| 14 (D7) | DB7        | PC3        | GPIO Output        |
+| 15 (BLA)| Backlight+ | +5V        |                    |
+| 16 (BLK)| Backlight- | GND        |                    |
 
-**Czujnik HC-SR04** – komunikacja cyfrowa przez GPIO
+### Micro servo 9g SG90
+
+| Przewód       | Pin Nucleo | Funkcja            |
+|---------------|------------|--------------------|
+| Żółty (sygnał)| PB6        | TIM4 CH1, AF2, PWM |
+| Czerwony (VCC)| +5V        | CN7 pin 18         |
+| Brązowy (GND) | GND        |                    |
+
+> Zworka: PB6–PA7
+
+### Silniki N20 – Mostek 1 (TB6612FNG)
+
+| Pin mostka | Pin Nucleo | Złącze | Funkcja         |
+|------------|------------|--------|-----------------|
+| STDBY      | PB0        | CN7    | GPIO Output     |
+| AIN1       | PB1        | CN7    | GPIO Output     |
+| AIN2       | PB3        | CN7    | GPIO Output     |
+| PWMA       | PB4        | CN7    | TIM3 CH1 AF2    |
+| BIN1       | PB5        | CN7    | GPIO Output     |
+| BIN2       | PB8        | CN7    | GPIO Output     |
+| PWMB       | PB9        | CN7    | TIM4 CH4 AF2    |
+
+### Silniki N20 – Mostek 2 (TB6612FNG)
+
+| Pin mostka | Pin Nucleo | Złącze | Funkcja         |
+|------------|------------|--------|-----------------|
+| STDBY      | PC8        | CN10   | GPIO Output     |
+| AIN1       | PC9        | CN10   | GPIO Output     |
+| AIN2       | PA4        | CN10   | GPIO Output     |
+| PWMA       | PA8        | CN10   | TIM1 CH1 AF1    |
+| BIN1       | PC4        | CN10   | GPIO Output     |
+| BIN2       | PC5        | CN10   | GPIO Output     |
+| PWMB       | PC7        | CN10   | TIM3 CH2 AF2    |
+
+### Przycisk użytkownika
+
+| Komponent | Pin Nucleo | Funkcja               |
+|-----------|------------|-----------------------|
+| B1 (USER) | PC13       | GPIO Input, Pull-up   |
+
+### Czujnik HC-SR04
+
+> Piny zostaną przypisane przy implementacji modułu omijania przeszkód.
+
+### Podsumowanie zajętych timerów
+
+| Timer    | Kanał | Pin | Zastosowanie      |
+|----------|-------|-----|-------------------|
+| TIM1     | CH1   | PA8 | Mostek2 PWMA      |
+| TIM3     | CH1   | PB4 | Mostek1 PWMA      |
+| TIM3     | CH2   | PC7 | Mostek2 PWMB      |
+| TIM4     | CH1   | PB6 | Servo SG90        |
+| TIM4     | CH4   | PB9 | Mostek1 PWMB      |
 
 ---
 
