@@ -1,0 +1,25 @@
+# Build output
+Debug/
+Release/
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+*.o
+*.d
+*.su
+*.cyclo
+*.dep
+
+# STM32CubeIDE / Eclipse IDE
+.metadata/
+*.launch
+RemoteSystemsTempFiles/
+
+# STM32CubeMX backup files
+*.bak
+
+# Windows
+Thumbs.db
+desktop.ini
