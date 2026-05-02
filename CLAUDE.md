@@ -8,7 +8,7 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 4, działające
 
 ## Główne funkcje
 
-- Sterowanie przez pad PS4 (Bluetooth)
+- Sterowanie przez pad PS3 (Bluetooth)
 - Jazda po linii (line follower)
 - Omijanie przeszkód – czujnik HC-SR04
 - Symulacja świateł samochodowych (LED czerwony, niebieski, żółty)
