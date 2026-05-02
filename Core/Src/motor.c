@@ -42,23 +42,6 @@ void Motor_Init(void)
     Motor_SetAll(MOTOR_STOP, 0);
 }
 
-/* Diagnostic: run ONLY B channels at full speed for 'ms' milliseconds.
-   Bypasses all joystick logic. Used to isolate B-channel hardware issues. */
-void Motor_TestB(uint16_t ms)
-{
-    HAL_GPIO_WritePin(M1_BIN1_GPIO_Port, M1_BIN1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(M1_BIN2_GPIO_Port, M1_BIN2_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(M2_BIN1_GPIO_Port, M2_BIN1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(M2_BIN2_GPIO_Port, M2_BIN2_Pin, GPIO_PIN_RESET);
-    __HAL_TIM_SET_COMPARE(&htim11, TIM_CHANNEL_1, 700U);  /* M1_PWMB */
-    __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_2, 700U);  /* M2_PWMB */
-    HAL_Delay(ms);
-    HAL_GPIO_WritePin(M1_BIN1_GPIO_Port, M1_BIN1_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(M2_BIN1_GPIO_Port, M2_BIN1_Pin, GPIO_PIN_RESET);
-    __HAL_TIM_SET_COMPARE(&htim11, TIM_CHANNEL_1, 0U);
-    __HAL_TIM_SET_COMPARE(&htim3,  TIM_CHANNEL_2, 0U);
-}
-
 void Motor_SetAll(MotorDir_t dir, uint16_t speed)
 {
     GPIO_PinState a1, a2;

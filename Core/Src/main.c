@@ -128,7 +128,6 @@ int main(void)
 
   Servo_Init();
   Motor_Init();
-  Motor_TestB(2000);  /* DIAGNOSTIC: B channels only, 2s – remove after test */
   /* USER CODE END 2 */
 
   /* Infinite loop */

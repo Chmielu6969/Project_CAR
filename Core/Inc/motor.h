@@ -14,6 +14,5 @@ typedef enum {
 
 void Motor_Init(void);
 void Motor_SetAll(MotorDir_t dir, uint16_t speed);
-void Motor_TestB(uint16_t ms);
 
 #endif /* INC_MOTOR_H_ */
