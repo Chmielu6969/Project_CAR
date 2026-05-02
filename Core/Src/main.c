@@ -128,6 +128,7 @@ int main(void)
 
   Servo_Init();
   Motor_Init();
+  Joystick_Calibrate();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -153,18 +154,18 @@ int main(void)
 
     /* --- Y axis → silniki (przód / tył / stop) --- */
     MotorDir_t motor_dir;
-    if (joy.y < JOY_DEADZONE_LOW)
+    if (joy.y < -JOY_DEADZONE)
       motor_dir = MOTOR_FORWARD;
-    else if (joy.y > JOY_DEADZONE_HIGH)
+    else if (joy.y > JOY_DEADZONE)
       motor_dir = MOTOR_BACKWARD;
     else
       motor_dir = MOTOR_STOP;
 
     /* --- X axis → servo (lewo / prawo / środek) --- */
     uint16_t servo_us;
-    if (joy.x < JOY_DEADZONE_LOW)
+    if (joy.x < -JOY_DEADZONE)
       servo_us = SERVO_LEFT_US;
-    else if (joy.x > JOY_DEADZONE_HIGH)
+    else if (joy.x > JOY_DEADZONE)
       servo_us = SERVO_RIGHT_US;
     else
       servo_us = SERVO_CENTER_US;
