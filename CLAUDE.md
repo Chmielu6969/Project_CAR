@@ -60,7 +60,7 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 3, działające
 | Czerwony (VCC)| +5V        | CN7 pin 18         |
 | Brązowy (GND) | GND        |                    |
 
-> Zworka: PB6–PA7
+> Zworka: PA6–PA5
 
 ### Silniki N20 – Mostek 1 (TB6612FNG)
 
