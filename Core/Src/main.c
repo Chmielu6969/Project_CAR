@@ -23,6 +23,8 @@
 /* USER CODE BEGIN Includes */
 #include "lcd.h"
 #include "servo.h"
+#include "motor.h"
+#include "joystick.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,21 +42,41 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
+TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim11;
 
 /* USER CODE BEGIN PV */
-/* Servo position toggles between RIGHT and LEFT on each button press */
-static uint8_t servo_state = 0;  /* 0 = right, 1 = left */
+/* Joystick button: cycles through LCD messages */
+static const char *lcd_messages[] = {
+    "  Projekt CAR   ",
+    "    Test  1     ",
+    "   Silniki OK   "
+};
+#define LCD_MSG_COUNT  3U
+static uint8_t  msg_idx       = 0;
+static uint8_t  prev_msg_idx  = 0xFF;
 
-/* Button debounce: minimum ms between two registered presses */
-#define BTN_DEBOUNCE_MS  200U
-static uint32_t btn_last_tick = 0;
+/* Debounce for joystick SW button */
+#define JOY_DEBOUNCE_MS  200U
+static uint32_t joy_last_tick = 0;
+
+/* Track previous state to redraw LCD only on change */
+static MotorDir_t prev_motor_dir = MOTOR_STOP;
+static uint16_t   prev_servo_us  = SERVO_CENTER_US;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_TIM1_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -93,14 +115,19 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM4_Init();
+  MX_ADC1_Init();
+  MX_TIM1_Init();
+  MX_TIM3_Init();
+  MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
   LCD_Init();
   LCD_SetCursor(0, 0);
-  LCD_Print("  Projekt CAR");
+  LCD_Print(lcd_messages[0]);
   LCD_SetCursor(1, 0);
-  LCD_Print("    Ready...");
+  LCD_Print("M:STOP  S:SRODEK");
 
   Servo_Init();
+  Motor_Init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -110,29 +137,78 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    /* Button is active LOW (PULLUP, connects to GND when pressed) */
-    if (HAL_GPIO_ReadPin(BTN_USER_GPIO_Port, BTN_USER_Pin) == GPIO_PIN_RESET)
+    JoystickData_t joy;
+    Joystick_Read(&joy);
+
+    /* --- Joystick button: cycle LCD row 0 message (debounced) --- */
+    if (joy.btn_pressed)
     {
       uint32_t now = HAL_GetTick();
-      if ((now - btn_last_tick) >= BTN_DEBOUNCE_MS)
+      if ((now - joy_last_tick) >= JOY_DEBOUNCE_MS)
       {
-        btn_last_tick = now;
-        servo_state ^= 1;
-
-        if (servo_state == 0)
-        {
-          Servo_SetPulse(SERVO_RIGHT_US);
-          LCD_SetCursor(1, 0);
-          LCD_Print("Servo: PRAWO    ");
-        }
-        else
-        {
-          Servo_SetPulse(SERVO_LEFT_US);
-          LCD_SetCursor(1, 0);
-          LCD_Print("Servo: LEWO     ");
-        }
+        joy_last_tick = now;
+        msg_idx = (msg_idx + 1) % LCD_MSG_COUNT;
       }
     }
+
+    /* --- Y axis → silniki (przód / tył / stop) --- */
+    MotorDir_t motor_dir;
+    if (joy.y < JOY_DEADZONE_LOW)
+      motor_dir = MOTOR_FORWARD;
+    else if (joy.y > JOY_DEADZONE_HIGH)
+      motor_dir = MOTOR_BACKWARD;
+    else
+      motor_dir = MOTOR_STOP;
+
+    /* --- X axis → servo (lewo / prawo / środek) --- */
+    uint16_t servo_us;
+    if (joy.x < JOY_DEADZONE_LOW)
+      servo_us = SERVO_LEFT_US;
+    else if (joy.x > JOY_DEADZONE_HIGH)
+      servo_us = SERVO_RIGHT_US;
+    else
+      servo_us = SERVO_CENTER_US;
+
+    /* --- Aktualizuj silniki i servo tylko gdy zmiana --- */
+    uint8_t lcd_row1_changed = 0;
+
+    if (motor_dir != prev_motor_dir)
+    {
+      Motor_SetAll(motor_dir, 700U);
+      prev_motor_dir = motor_dir;
+      lcd_row1_changed = 1;
+    }
+
+    if (servo_us != prev_servo_us)
+    {
+      Servo_SetPulse(servo_us);
+      prev_servo_us = servo_us;
+      lcd_row1_changed = 1;
+    }
+
+    /* --- Aktualizuj LCD tylko gdy zmiana stanu --- */
+    if (msg_idx != prev_msg_idx)
+    {
+      LCD_SetCursor(0, 0);
+      LCD_Print(lcd_messages[msg_idx]);
+      prev_msg_idx = msg_idx;
+    }
+
+    if (lcd_row1_changed)
+    {
+      const char *m_str = (motor_dir == MOTOR_FORWARD)  ? "M:PRZOD " :
+                          (motor_dir == MOTOR_BACKWARD) ? "M:TYL   " :
+                                                          "M:STOP  ";
+      const char *s_str = (servo_us == SERVO_LEFT_US)   ? "S:LEWO  " :
+                          (servo_us == SERVO_RIGHT_US)  ? "S:PRAWO " :
+                                                          "S:SRODEK";
+      LCD_SetCursor(1, 0);
+      LCD_Print(m_str);
+      LCD_SetCursor(1, 8);
+      LCD_Print(s_str);
+    }
+
+    HAL_Delay(50);
   }
   /* USER CODE END 3 */
 }
@@ -176,6 +252,205 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 15;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 1000;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 15;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 1000;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+  HAL_TIM_MspPostInit(&htim3);
+
 }
 
 /**
@@ -238,6 +513,52 @@ static void MX_TIM4_Init(void)
 }
 
 /**
+  * @brief TIM11 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM11_Init(void)
+{
+
+  /* USER CODE BEGIN TIM11_Init 0 */
+
+  /* USER CODE END TIM11_Init 0 */
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM11_Init 1 */
+
+  /* USER CODE END TIM11_Init 1 */
+  htim11.Instance = TIM11;
+  htim11.Init.Prescaler = 15;
+  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim11.Init.Period = 1000;
+  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim11, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM11_Init 2 */
+
+  /* USER CODE END TIM11_Init 2 */
+  HAL_TIM_MspPostInit(&htim11);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -248,11 +569,20 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, LCD_D4_Pin|LCD_D5_Pin|LCD_D6_Pin|LCD_D7_Pin
+                          |M2_BIN1_Pin|M2_BIN2_Pin|M2_STDBY_Pin|M2_AIN1_Pin
                           |LCD_RS_Pin|LCD_E_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(M2_AIN2_GPIO_Port, M2_AIN2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, M1_STDBY_Pin|M1_AIN1_Pin|M1_AIN2_Pin|M1_BIN1_Pin
+                          |M1_BIN2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : BTN_USER_Pin */
   GPIO_InitStruct.Pin = BTN_USER_Pin;
@@ -261,13 +591,37 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(BTN_USER_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LCD_D4_Pin LCD_D5_Pin LCD_D6_Pin LCD_D7_Pin
+                           M2_BIN1_Pin M2_BIN2_Pin M2_STDBY_Pin M2_AIN1_Pin
                            LCD_RS_Pin LCD_E_Pin */
   GPIO_InitStruct.Pin = LCD_D4_Pin|LCD_D5_Pin|LCD_D6_Pin|LCD_D7_Pin
+                          |M2_BIN1_Pin|M2_BIN2_Pin|M2_STDBY_Pin|M2_AIN1_Pin
                           |LCD_RS_Pin|LCD_E_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : JOY_SW_Pin */
+  GPIO_InitStruct.Pin = JOY_SW_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(JOY_SW_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : M2_AIN2_Pin */
+  GPIO_InitStruct.Pin = M2_AIN2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(M2_AIN2_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : M1_STDBY_Pin M1_AIN1_Pin M1_AIN2_Pin M1_BIN1_Pin
+                           M1_BIN2_Pin */
+  GPIO_InitStruct.Pin = M1_STDBY_Pin|M1_AIN1_Pin|M1_AIN2_Pin|M1_BIN1_Pin
+                          |M1_BIN2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 
