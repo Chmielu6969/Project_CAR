@@ -1,12 +1,12 @@
 # Projekt CAR – Samochód RC na STM32
 
-Zdalnie sterowany samochód zbudowany na płytce **STM32 Nucleo F401RE** (ARM Cortex-M4). Pojazd obsługuje sterowanie przez pad PlayStation 3 (Bluetooth), autonomiczną jazdę po linii oraz omijanie przeszkód za pomocą czujnika ultradźwiękowego.
+Zdalnie sterowany samochód zbudowany na płytce **STM32 Nucleo F401RE** (ARM Cortex-M4). Pojazd obsługuje sterowanie przez pad PlayStation 5 (Bluetooth), autonomiczną jazdę po linii oraz omijanie przeszkód za pomocą czujnika ultradźwiękowego.
 
 ---
 
 ## Funkcje
 
-- Sterowanie przez pad PS3 (Bluetooth)
+- Sterowanie przez pad PS5 (Bluetooth)
 - Jazda po linii – autonomiczne śledzenie czarnej linii na białym tle
 - Omijanie przeszkód – czujnik ultradźwiękowy HC-SR04
 - Sterowanie serwomechanizmem SG90 (skręt kół przednich)
@@ -38,7 +38,7 @@ Zdalnie sterowany samochód zbudowany na płytce **STM32 Nucleo F401RE** (ARM Co
 | 1     | Mechanika – servo + 4 silniki N20           | W toku     |
 | 2     | Jazda zaprogramowaną sekwencją 10 kroków    | Oczekuje   |
 | 3     | Jazda po linii (line follower)              | Oczekuje   |
-| 4     | Sterowanie przez pad PS3 (Bluetooth)        | Oczekuje   |
+| 4     | Sterowanie przez pad PS5 (Bluetooth)        | Oczekuje   |
 
 **Aktualnie zaimplementowane:**
 - Sterownik silników N20 przez dwa mostki TB6612FNG (`motor.c / motor.h`)

@@ -2,13 +2,13 @@
 
 ## Cel projektu
 
-Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 3, działającego na płytce STM32 Nucleo F401RE. Pojazd ma jeździć autonomicznie po linii oraz omijać przeszkody za pomocą czujnika ultradźwiękowego HC-SR04.
+Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działającego na płytce STM32 Nucleo F401RE. Pojazd ma jeździć autonomicznie po linii oraz omijać przeszkody za pomocą czujnika ultradźwiękowego HC-SR04.
 
 ---
 
 ## Główne funkcje
 
-- Sterowanie przez pad PS3 (Bluetooth)
+- Sterowanie przez pad PS5 (Bluetooth)
 - Jazda po linii (line follower)
 - Omijanie przeszkód – czujnik HC-SR04
 - Symulacja świateł samochodowych (LED czerwony, niebieski, żółty)
@@ -162,12 +162,12 @@ Moduły są realizowane **w podanej kolejności** – każdy następny zaczyna s
 
 ---
 
-### Moduł 4 – Sterowanie przez pad PS3 (Bluetooth) *(moduł końcowy)*
+### Moduł 4 – Sterowanie przez pad PS5 (Bluetooth) *(moduł końcowy)*
 
-- [ ] **Cel:** Użytkownik steruje robotem w czasie rzeczywistym za pomocą pada PS3 przez Bluetooth. Możliwe jest przełączanie między trybem ręcznym a autonomicznym (line follower).
+- [ ] **Cel:** Użytkownik steruje robotem w czasie rzeczywistym za pomocą pada PS5 przez Bluetooth. Możliwe jest przełączanie między trybem ręcznym a autonomicznym (line follower).
 
   **Kryteria ukończenia:**
-  - Pad PS3 paruje się z robotem i połączenie jest stabilne.
+  - Pad PS5 paruje się z robotem i połączenie jest stabilne.
   - Joystick / D-pad steruje kierunkiem i prędkością jazdy.
   - Jeden z przycisków zatrzymuje robota awaryjnie.
   - Możliwe przełączenie między trybem ręcznym (pad) a autonomicznym (line follower).
@@ -223,7 +223,7 @@ Daj znać gdy gotowe – wtedy napiszę kod korzystający z tej konfiguracji.
 - Każdy nowy feature (funkcjonalność) dostaje **osobny branch** o nazwie odpowiadającej tej funkcjonalności, np.:
   - `feature/lcd-display`
   - `feature/hc-sr04-obstacle`
-  - `feature/ps4-bluetooth`
+  - `feature/ps5-bluetooth`
   - `feature/line-follower`
 - Claude pracuje **wyłącznie na branchu danego feature'a** – nigdy bezpośrednio na `main`.
 
