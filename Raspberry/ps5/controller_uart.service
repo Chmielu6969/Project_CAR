@@ -1,0 +1,17 @@
+[Unit]
+Description=PS5 Controller to STM32 UART bridge
+After=network.target bluetooth.target
+Wants=bluetooth.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/home/admin/Desktop/Project_CAR/Raspberry
+Environment=DISPLAY=:0
+ExecStartPre=/bin/sleep 10
+ExecStart=/home/admin/Desktop/Project_CAR/Raspberry/venv/bin/python3 /home/admin/Desktop/Project_CAR/Raspberry/uart/uart_sender.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

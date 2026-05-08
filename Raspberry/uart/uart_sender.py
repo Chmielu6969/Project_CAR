@@ -8,7 +8,7 @@ import sys
 import time
 import serial
 
-sys.path.append('../ps5')
+sys.path.append('/home/admin/Desktop/Project_CAR/Raspberry/ps5')
 from ps5_controller import PS5Controller
 
 # UART config
