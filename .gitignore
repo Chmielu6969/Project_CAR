@@ -22,6 +22,7 @@ RemoteSystemsTempFiles/
 
 # Python
 *venv*
+__pycache__
 
 # Windows
 Thumbs.db
