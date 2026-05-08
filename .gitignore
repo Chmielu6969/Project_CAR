@@ -20,6 +20,9 @@ RemoteSystemsTempFiles/
 # STM32CubeMX backup files
 *.bak
 
+# Python
+*venv*
+
 # Windows
 Thumbs.db
 desktop.ini
