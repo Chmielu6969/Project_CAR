@@ -2,13 +2,14 @@
 """
 ps5_controller.py - PS5 DualSense controller state manager
 Maintains current state of all axes, buttons and D-pad.
+Handles controller disconnection and reconnection gracefully.
 """
 
 import pygame
+import time
 
 DEADZONE = 0.15
 
-# Axes that return -1.0 at rest, normalized to [0.0, 1.0]
 TRIGGER_AXES = {2, 5}
 
 AXIS_MAP = {
@@ -43,6 +44,8 @@ DPAD_MAP = {
     (1,  0): "dpad_right",
 }
 
+RECONNECT_INTERVAL = 3.0  # seconds between reconnection attempts
+
 
 def _apply_deadzone(value, threshold):
     """Return 0.0 if value is within deadzone, otherwise return value as-is."""
@@ -56,57 +59,88 @@ def _normalize_trigger(value):
     return (value + 1.0) / 2.0
 
 
+def _empty_state():
+    """Return a zeroed-out controller state dictionary."""
+    return {
+        "left_stick_x":  0.0,
+        "left_stick_y":  0.0,
+        "right_stick_x": 0.0,
+        "right_stick_y": 0.0,
+        "l2": 0.0,
+        "r2": 0.0,
+        "cross":      False,
+        "circle":     False,
+        "triangle":   False,
+        "square":     False,
+        "l1":         False,
+        "r1":         False,
+        "l2_digital": False,
+        "r2_digital": False,
+        "l3":         False,
+        "r3":         False,
+        "share":      False,
+        "options":    False,
+        "ps":         False,
+        "dpad_up":    False,
+        "dpad_down":  False,
+        "dpad_left":  False,
+        "dpad_right": False,
+    }
+
+
 class PS5Controller:
-    """Maintains the current state of a connected PS5 DualSense controller."""
+    """
+    Maintains the current state of a connected PS5 DualSense controller.
+    Automatically handles disconnection and reconnection.
+    """
 
     def __init__(self):
-        self.state = {
-            # Sticks
-            "left_stick_x":  0.0,
-            "left_stick_y":  0.0,
-            "right_stick_x": 0.0,
-            "right_stick_y": 0.0,
-            # Triggers
-            "l2": 0.0,
-            "r2": 0.0,
-            # Buttons
-            "cross":      False,
-            "circle":     False,
-            "triangle":   False,
-            "square":     False,
-            "l1":         False,
-            "r1":         False,
-            "l2_digital": False,
-            "r2_digital": False,
-            "l3":         False,
-            "r3":         False,
-            "share":      False,
-            "options":    False,
-            "ps":         False,
-            # D-pad
-            "dpad_up":    False,
-            "dpad_down":  False,
-            "dpad_left":  False,
-            "dpad_right": False,
-        }
+        self.state = _empty_state()
+        self.connected = False
         self._pad = None
+        self._last_reconnect_attempt = 0.0
 
     def connect(self):
-        """Initialize pygame and connect to the first available controller."""
+        """Initialize pygame and attempt to connect to the first available controller."""
         pygame.init()
+        pygame.joystick.init()
+        self._try_connect()
+
+    def _try_connect(self):
+        """Try to connect to a controller. Returns True if successful."""
+        pygame.joystick.quit()
         pygame.joystick.init()
 
         if pygame.joystick.get_count() == 0:
-            raise RuntimeError("No controller detected. Make sure the PS5 pad is connected via Bluetooth.")
+            return False
 
-        self._pad = pygame.joystick.Joystick(0)
-        self._pad.init()
-        print(f"Controller connected: {self._pad.get_name()}")
+        try:
+            self._pad = pygame.joystick.Joystick(0)
+            self._pad.init()
+            self.connected = True
+            print(f"Controller connected: {self._pad.get_name()}")
+            return True
+        except pygame.error as e:
+            print(f"Controller connection failed: {e}")
+            self.connected = False
+            return False
 
     def update(self):
-        """Process all pending pygame events and update internal state."""
+        """
+        Process all pending pygame events and update internal state.
+        If controller is disconnected, attempt reconnection periodically.
+        """
+        if not self.connected:
+            self._handle_disconnected()
+            return
+
         for event in pygame.event.get():
-            if event.type == pygame.JOYAXISMOTION:
+            if event.type == pygame.JOYDEVICEREMOVED:
+                print("Controller disconnected.")
+                self.connected = False
+                self.state = _empty_state()
+                self._pad = None
+            elif event.type == pygame.JOYAXISMOTION:
                 self._handle_axis(event)
             elif event.type == pygame.JOYBUTTONDOWN:
                 self._handle_button(event.button, pressed=True)
@@ -114,6 +148,14 @@ class PS5Controller:
                 self._handle_button(event.button, pressed=False)
             elif event.type == pygame.JOYHATMOTION:
                 self._handle_dpad(event.value)
+
+    def _handle_disconnected(self):
+        """Attempt reconnection if enough time has passed since last attempt."""
+        now = time.monotonic()
+        if now - self._last_reconnect_attempt >= RECONNECT_INTERVAL:
+            self._last_reconnect_attempt = now
+            print("Attempting to reconnect controller...")
+            self._try_connect()
 
     def _handle_axis(self, event):
         """Update axis state with deadzone and trigger normalization."""
@@ -142,3 +184,4 @@ class PS5Controller:
     def disconnect(self):
         """Clean up pygame resources."""
         pygame.quit()
+        self.connected = False
