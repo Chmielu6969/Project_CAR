@@ -13,21 +13,21 @@ import pynmea2
 
 GPS_GPIO     = 23
 GPS_BAUDRATE = 9600
-KNOTS_TO_KMH = 1.852
+KNOTS_TO_MS  = 0.51444  # 1 knot = 0.51444 m/s
 
 
 class GPSReader:
     """Background thread that reads NMEA sentences and exposes current speed."""
 
     def __init__(self, gpio=GPS_GPIO, baudrate=GPS_BAUDRATE):
-        self._gpio      = gpio
-        self._baudrate  = baudrate
-        self._speed_kmh = 0.0
-        self._lock      = threading.Lock()
-        self._running   = False
-        self._thread    = None
-        self._pi        = None
-        self._buf       = b''
+        self._gpio     = gpio
+        self._baudrate = baudrate
+        self._speed_ms = 0.0
+        self._lock     = threading.Lock()
+        self._running  = False
+        self._thread   = None
+        self._pi       = None
+        self._buf      = b''
 
     def start(self):
         """Start background reading thread."""
@@ -40,10 +40,10 @@ class GPSReader:
         """Signal background thread to stop."""
         self._running = False
 
-    def get_speed_kmh(self):
-        """Return last known speed in km/h (0.0 when no GPS fix)."""
+    def get_speed_ms(self):
+        """Return last known speed in m/s (0.0 when no GPS fix)."""
         with self._lock:
-            return self._speed_kmh
+            return self._speed_ms
 
     # ------------------------------------------------------------------
 
@@ -75,11 +75,20 @@ class GPSReader:
             if not pi.connected:
                 print("GPS: pigpio daemon not running – start with: sudo systemctl start pigpiod")
                 return None
+            # Close leftover state from any previous run before opening
+            try:
+                pi.bb_serial_read_close(self._gpio)
+            except Exception:
+                pass
             pi.bb_serial_read_open(self._gpio, self._baudrate, 8)
             print(f"GPS software serial opened on GPIO{self._gpio}")
             return pi
         except Exception as e:
             print(f"GPS pigpio init error: {e}")
+            try:
+                pi.stop()
+            except Exception:
+                pass
             return None
 
     def _disconnect(self):
@@ -103,11 +112,11 @@ class GPSReader:
         try:
             msg = pynmea2.parse(sentence)
             if msg.status == 'A' and msg.spd_over_grnd is not None:
-                kmh = float(msg.spd_over_grnd) * KNOTS_TO_KMH
+                ms = float(msg.spd_over_grnd) * KNOTS_TO_MS
                 with self._lock:
-                    self._speed_kmh = kmh
+                    self._speed_ms = ms
             else:
                 with self._lock:
-                    self._speed_kmh = 0.0
+                    self._speed_ms = 0.0
         except (pynmea2.ParseError, AttributeError, ValueError):
             pass
