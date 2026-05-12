@@ -8,6 +8,12 @@
 - Flash: 512 KB, RAM: 96 KB
 - Zasilanie: 3,3 V / 5 V przez złącza CN7 / CN10
 
+**Raspberry Pi Zero 2 W**
+- Most między kontrolerem PS5 (Bluetooth) a STM32 (UART)
+- UART0/ttyAMA0 (GPIO14/GPIO15) → STM32 @ 115200 baud
+- UART3/ttyAMA1 (GPIO4/GPIO5) → GPS GY-GPS6MV2 @ 9600 baud
+- Bluetooth (dtoverlay=miniuart-bt) → Kontroler PS5 DualSense
+
 ---
 
 ## Schemat podłączenia
@@ -73,6 +79,17 @@
 
 Piny zostaną przypisane przy implementacji Modułu 3 (omijanie przeszkód).
 
+### Moduł GPS GY-GPS6MV2 (Raspberry Pi)
+
+| Pin GPS (GY-GPS6MV2)  | Pin Raspberry Pi Zero 2 W | Fizyczny pin | Opis                             |
+|-----------------------|---------------------------|--------------|----------------------------------|
+| VCC                   | 5V                        | Pin 2 lub 4  | Zasilanie (regulator 3,3 V na module) |
+| GND                   | GND                       | Pin 6        | Masa                             |
+| TXD                   | GPIO5 (UART3 RXD)         | Pin 29       | GPS TX → RPi RX (dane NMEA)      |
+| RXD                   | GPIO4 (UART3 TXD)         | Pin 7        | GPS RX ← RPi TX (opcjonalne)     |
+
+Wymagany overlay w `/boot/firmware/config.txt`: `dtoverlay=uart3` → port `/dev/ttyAMA1`.
+
 ---
 
 ## Przypisanie timerów
@@ -107,6 +124,15 @@ Project_CAR/
 │       ├── motor.c          # Sterowanie dwoma mostkami TB6612FNG
 │       ├── servo.c          # Sterowanie PWM przez TIM4 CH1
 │       └── main.c           # Inicjalizacja peryferiów, główna pętla sterowania
+├── Raspberry/
+│   ├── gps/
+│   │   └── gps_reader.py    # GPSReader – odczyt NMEA z GY-GPS6MV2, prędkość w km/h
+│   ├── ps5/
+│   │   ├── ps5_controller.py # PS5Controller – stan kontrolera DualSense przez Bluetooth
+│   │   └── ps5_test.py       # Skrypt testowy kontrolera
+│   ├── uart/
+│   │   └── uart_sender.py    # Wysyła komendy PS5 + GPS_SPEED do STM32 przez UART
+│   └── controller_uart.service # Serwis systemd – autostart po restarcie RPi
 ├── Drivers/                 # STM32 HAL + CMSIS (generowane przez CubeMX)
 ├── Project_CAR.ioc          # Konfiguracja STM32CubeMX
 └── STM32F401RETX_FLASH.ld   # Skrypt linkera
@@ -148,3 +174,7 @@ Implementacja protokołu HD44780 w trybie 4-bit. Udostępnia funkcje `LCD_Init()
 ### `joystick.c` – odczyt joysticka
 
 Odczytuje dwie osie (X, Y) przez ADC1 (kanały 0 i 1, rozdzielczość 12-bit). Funkcja `Joystick_Calibrate()` uśrednia 16 próbek przy starcie i zapamiętuje punkt zerowy. `Joystick_Read()` zwraca wartości ze znakiem względem skalibrowanego środka oraz stan przycisku SW.
+
+### `gps_reader.py` – odczyt GPS (Raspberry Pi)
+
+Klasa `GPSReader` uruchamia wątek tła, który czyta zdania NMEA z `/dev/ttyAMA1` (@ 9600 baud) i parsuje `$GPRMC`/`$GNRMC` przy użyciu biblioteki `pynmea2`. Prędkość nad ziemią (w węzłach) jest przeliczana na km/h i udostępniana przez `get_speed_kmh() -> float`. Brak sygnału GPS lub utrata połączenia zwraca `0.0`. Wynik jest co 50 ms dołączany do strumienia komend UART jako `GPS_SPEED:XX.X\n`.

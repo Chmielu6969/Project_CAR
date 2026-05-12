@@ -22,11 +22,13 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działające
 | Komponent | Ilość |
 |---|---|
 | STM32 Nucleo F401RE (ARM Cortex M4) | 1x |
+| Raspberry Pi Zero 2 W | 1x |
 | TB6612FNG – sterownik silników 13,5V/1A | 2x |
 | Silnik N20-BT03 micro 10:1 3000RPM 12V | 4x |
 | Micro servo 9g SG90 | 1x |
 | Wyświetlacz LCD (16-pin, tryb 4-bit) | 1x |
 | Czujnik HC-SR04 | 1x |
+| Moduł GPS GY-GPS6MV2 (u-blox NEO-6M) | 1x |
 | LED czerwony | 2x |
 | LED niebieski | 4x |
 | LED żółty | 2x |
@@ -95,6 +97,17 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działające
 ### Czujnik HC-SR04
 
 > Piny zostaną przypisane przy implementacji modułu omijania przeszkód.
+
+### Moduł GPS GY-GPS6MV2 (Raspberry Pi Zero 2 W)
+
+| Pin GPS (GY-GPS6MV2)  | Pin Raspberry Pi Zero 2 W | Fizyczny pin | Opis                             |
+|-----------------------|---------------------------|--------------|----------------------------------|
+| VCC                   | 5V                        | Pin 2 lub 4  | Zasilanie (regulator 3,3 V na module) |
+| GND                   | GND                       | Pin 6        | Masa                             |
+| TXD                   | GPIO5 (UART3 RXD)         | Pin 29       | GPS TX → RPi RX (dane NMEA)      |
+| RXD                   | GPIO4 (UART3 TXD)         | Pin 7        | GPS RX ← RPi TX (opcjonalne)     |
+
+Wymagana zmiana w `/boot/firmware/config.txt`: dodać `dtoverlay=uart3` → port `/dev/ttyAMA1` @ 9600 baud.
 
 ### Podsumowanie zajętych timerów
 

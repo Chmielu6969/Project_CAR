@@ -49,7 +49,7 @@ exit
 ```bash
 cd ~/Desktop/Project_CAR/Raspberry
 python3 -m venv venv
-venv/bin/pip install pygame pyserial
+venv/bin/pip install pygame pyserial pynmea2
 ```
 
 ### 4. Podłączenie UART (Raspberry Pi → STM32)
@@ -62,7 +62,40 @@ venv/bin/pip install pygame pyserial
 
 > **Napięcia:** Raspberry Pi i STM32 pracują na 3.3 V – można łączyć bezpośrednio bez konwertera poziomów.
 
-### 5. Zainstaluj serwis systemd (autostart)
+### 5. Podłącz i skonfiguruj moduł GPS GY-GPS6MV2
+
+#### Schemat podłączenia
+
+| Pin GPS (GY-GPS6MV2)  | Pin Raspberry Pi Zero 2 W | Fizyczny pin | Opis                   |
+|-----------------------|---------------------------|--------------|------------------------|
+| VCC                   | 5V                        | Pin 2 lub 4  | Zasilanie (moduł ma własny regulator 3,3 V) |
+| GND                   | GND                       | Pin 6        | Masa                   |
+| TXD                   | GPIO5 (UART3 RXD)         | Pin 29       | GPS TX → RPi RX        |
+| RXD                   | GPIO4 (UART3 TXD)         | Pin 7        | GPS RX ← RPi TX (opcjonalne) |
+
+#### Konfiguracja UART3 w `/boot/firmware/config.txt`
+
+Dodaj linię `dtoverlay=uart3` tak, aby sekcja `[all]` wyglądała:
+
+```ini
+[all]
+enable_uart=1
+dtoverlay=miniuart-bt
+dtoverlay=uart3
+```
+
+Po zapisaniu **zrestartuj Raspberry Pi**. Moduł GPS będzie dostępny jako `/dev/ttyAMA1` @ 9600 baud.
+
+Weryfikacja:
+
+```bash
+ls /dev/ttyAMA*          # powinien pojawić się /dev/ttyAMA1
+cat /dev/ttyAMA1         # powinny płynąć zdania NMEA ($GPRMC, $GPVTG, …)
+```
+
+---
+
+### 6. Zainstaluj serwis systemd (autostart)
 
 ```bash
 sudo cp controller_uart.service /etc/systemd/system/
@@ -95,11 +128,14 @@ venv/bin/python uart/uart_sender.py
 
 ```
 Raspberry/
+├── gps/
+│   ├── gps_reader.py           # Klasa GPSReader – odczyt NMEA, prędkość w km/h
+│   └── __init__.py
 ├── ps5/
 │   ├── ps5_controller.py       # Klasa PS5Controller – przechowuje stan kontrolera
 │   └── ps5_test.py             # Skrypt testowy – wypisuje aktywne wejścia w konsoli
 ├── uart/
-│   ├── uart_sender.py          # Wysyła komendy z pada przez UART do STM32
+│   ├── uart_sender.py          # Wysyła komendy z pada + prędkość GPS przez UART do STM32
 │   └── __init__.py
 ├── controller_uart.service     # Plik serwisu systemd (autostart po restarcie)
 └── README.md                   # Ten plik
@@ -111,13 +147,14 @@ Raspberry/
 
 Komendy wysyłane przez UART do STM32 mają format `NAZWA:WARTOŚĆ\n`, np.:
 
-| Komenda        | Opis                                  |
-|----------------|---------------------------------------|
-| `LSX:0.75\n`   | Lewy drążek poziomo, wartość `0.75`   |
-| `LSY:-0.50\n`  | Lewy drążek pionowo, wartość `-0.50`  |
-| `CROSS:1\n`    | Wciśnięty krzyżyk                    |
-| `R2:0.85\n`    | Spust R2, wartość `0.85`              |
-| `DPAD_UP:1\n`  | Krzyżak góra                         |
+| Komenda           | Opis                                        |
+|-------------------|---------------------------------------------|
+| `LSX:0.75\n`      | Lewy drążek poziomo, wartość `0.75`         |
+| `LSY:-0.50\n`     | Lewy drążek pionowo, wartość `-0.50`        |
+| `CROSS:1\n`       | Wciśnięty krzyżyk                          |
+| `R2:0.85\n`       | Spust R2, wartość `0.85`                    |
+| `DPAD_UP:1\n`     | Krzyżak góra                               |
+| `GPS_SPEED:42.3\n`| Prędkość z GPS w km/h (co 50 ms)           |
 
 ---
 
