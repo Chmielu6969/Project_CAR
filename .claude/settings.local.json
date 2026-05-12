@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\kubac\\\\Documents\\\\Projekt_CAR\\\\Project_CAR\" -Recurse -File)",
+      "Bash(Select-Object -First 50)"
+    ]
+  }
+}
