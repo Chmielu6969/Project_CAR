@@ -49,7 +49,7 @@ exit
 ```bash
 cd ~/Desktop/Project_CAR/Raspberry
 python3 -m venv venv
-venv/bin/pip install pygame pyserial pynmea2
+venv/bin/pip install pygame pyserial pynmea2 pigpio
 ```
 
 ### 4. Podłączenie UART (Raspberry Pi → STM32)
@@ -62,7 +62,9 @@ venv/bin/pip install pygame pyserial pynmea2
 
 > **Napięcia:** Raspberry Pi i STM32 pracują na 3.3 V – można łączyć bezpośrednio bez konwertera poziomów.
 
-### 5. Podłącz i skonfiguruj moduł GPS GY-GPS6MV2
+### 5. Podłącz moduł GPS GY-GPS6MV2
+
+RPi Zero 2 W ma tylko 2 sprzętowe UART-y (oba zajęte przez STM32 i Bluetooth), dlatego GPS używa **software serial przez pigpio** na GPIO23.
 
 #### Schemat podłączenia
 
@@ -70,27 +72,37 @@ venv/bin/pip install pygame pyserial pynmea2
 |-----------------------|---------------------------|--------------|------------------------|
 | VCC                   | 5V                        | Pin 2 lub 4  | Zasilanie (moduł ma własny regulator 3,3 V) |
 | GND                   | GND                       | Pin 6        | Masa                   |
-| TXD                   | GPIO5 (UART3 RXD)         | Pin 29       | GPS TX → RPi RX        |
-| RXD                   | GPIO4 (UART3 TXD)         | Pin 7        | GPS RX ← RPi TX (opcjonalne) |
+| TXD                   | GPIO23                    | Pin 16       | GPS TX → RPi RX (software serial) |
+| RXD                   | —                         | —            | Niepotrzebne           |
 
-#### Konfiguracja UART3 w `/boot/firmware/config.txt`
+#### Instalacja i autostart pigpiod
 
-Dodaj linię `dtoverlay=uart3` tak, aby sekcja `[all]` wyglądała:
+```bash
+sudo apt install pigpio
+sudo systemctl enable pigpiod
+sudo systemctl start pigpiod
+```
+
+Sprawdź czy działa:
+
+```bash
+sudo systemctl status pigpiod
+```
+
+#### Usunięcie zbędnego overlay z `/boot/firmware/config.txt`
+
+Jeśli wcześniej dodałeś `dtoverlay=uart3`, usuń tę linię — na RPi Zero 2 W nie ma sprzętowego UART3 i overlay nie działa. Sekcja `[all]` powinna wyglądać:
 
 ```ini
 [all]
 enable_uart=1
 dtoverlay=miniuart-bt
-dtoverlay=uart3
 ```
 
-Po zapisaniu **zrestartuj Raspberry Pi**. Moduł GPS będzie dostępny jako `/dev/ttyAMA1` @ 9600 baud.
-
-Weryfikacja:
+Weryfikacja pigpio:
 
 ```bash
-ls /dev/ttyAMA*          # powinien pojawić się /dev/ttyAMA1
-cat /dev/ttyAMA1         # powinny płynąć zdania NMEA ($GPRMC, $GPVTG, …)
+python3 -c "import pigpio; pi=pigpio.pi(); print('pigpio OK:', pi.connected); pi.stop()"
 ```
 
 ---

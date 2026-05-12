@@ -100,14 +100,16 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działające
 
 ### Moduł GPS GY-GPS6MV2 (Raspberry Pi Zero 2 W)
 
+RPi Zero 2 W ma tylko 2 sprzętowe UART-y (oba zajęte przez STM32 i Bluetooth). GPS używa software serial przez `pigpio` na GPIO23.
+
 | Pin GPS (GY-GPS6MV2)  | Pin Raspberry Pi Zero 2 W | Fizyczny pin | Opis                             |
 |-----------------------|---------------------------|--------------|----------------------------------|
 | VCC                   | 5V                        | Pin 2 lub 4  | Zasilanie (regulator 3,3 V na module) |
 | GND                   | GND                       | Pin 6        | Masa                             |
-| TXD                   | GPIO5 (UART3 RXD)         | Pin 29       | GPS TX → RPi RX (dane NMEA)      |
-| RXD                   | GPIO4 (UART3 TXD)         | Pin 7        | GPS RX ← RPi TX (opcjonalne)     |
+| TXD                   | GPIO23                    | Pin 16       | GPS TX → RPi RX (software serial) |
+| RXD                   | —                         | —            | Niepotrzebne                     |
 
-Wymagana zmiana w `/boot/firmware/config.txt`: dodać `dtoverlay=uart3` → port `/dev/ttyAMA1` @ 9600 baud.
+Wymaga: daemon `pigpiod` (`sudo systemctl enable pigpiod && sudo systemctl start pigpiod`).
 
 ### Podsumowanie zajętych timerów
 

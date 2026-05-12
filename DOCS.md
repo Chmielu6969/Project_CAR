@@ -81,14 +81,16 @@ Piny zostaną przypisane przy implementacji Modułu 3 (omijanie przeszkód).
 
 ### Moduł GPS GY-GPS6MV2 (Raspberry Pi)
 
+RPi Zero 2 W ma tylko 2 sprzętowe UART-y (oba zajęte), dlatego GPS używa software serial przez `pigpio` na GPIO23.
+
 | Pin GPS (GY-GPS6MV2)  | Pin Raspberry Pi Zero 2 W | Fizyczny pin | Opis                             |
 |-----------------------|---------------------------|--------------|----------------------------------|
 | VCC                   | 5V                        | Pin 2 lub 4  | Zasilanie (regulator 3,3 V na module) |
 | GND                   | GND                       | Pin 6        | Masa                             |
-| TXD                   | GPIO5 (UART3 RXD)         | Pin 29       | GPS TX → RPi RX (dane NMEA)      |
-| RXD                   | GPIO4 (UART3 TXD)         | Pin 7        | GPS RX ← RPi TX (opcjonalne)     |
+| TXD                   | GPIO23                    | Pin 16       | GPS TX → RPi RX (software serial) |
+| RXD                   | —                         | —            | Niepotrzebne                     |
 
-Wymagany overlay w `/boot/firmware/config.txt`: `dtoverlay=uart3` → port `/dev/ttyAMA1`.
+Wymaga: `pigpiod` daemon (`sudo systemctl enable pigpiod`).
 
 ---
 
@@ -177,4 +179,4 @@ Odczytuje dwie osie (X, Y) przez ADC1 (kanały 0 i 1, rozdzielczość 12-bit). F
 
 ### `gps_reader.py` – odczyt GPS (Raspberry Pi)
 
-Klasa `GPSReader` uruchamia wątek tła, który czyta zdania NMEA z `/dev/ttyAMA1` (@ 9600 baud) i parsuje `$GPRMC`/`$GNRMC` przy użyciu biblioteki `pynmea2`. Prędkość nad ziemią (w węzłach) jest przeliczana na km/h i udostępniana przez `get_speed_kmh() -> float`. Brak sygnału GPS lub utrata połączenia zwraca `0.0`. Wynik jest co 50 ms dołączany do strumienia komend UART jako `GPS_SPEED:XX.X\n`.
+Klasa `GPSReader` uruchamia wątek tła, który czyta bajty z GPIO23 przez software serial `pigpio` (9600 baud) i parsuje zdania `$GPRMC`/`$GNRMC` przy użyciu `pynmea2`. Prędkość nad ziemią (w węzłach) jest przeliczana na km/h i udostępniana przez `get_speed_kmh() -> float`. Brak sygnału GPS lub niedostępny daemon `pigpiod` zwraca `0.0`. Wynik jest co 50 ms dołączany do strumienia komend UART jako `GPS_SPEED:XX.X\n`.
