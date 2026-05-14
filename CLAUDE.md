@@ -1,19 +1,26 @@
-# Projekt CAR_123 – Samochód RC na STM32
+# Projekt RC_CAR Ferrari SF90 XX Stradale
+
+## Autorzy
+
+- Jakub Chmielewski 21432
+- Kacper Siemieniako 21560
+- Hot Dog 6767
 
 ## Cel projektu
 
-Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działającego na płytce STM32 Nucleo F401RE. Pojazd ma jeździć autonomicznie po linii oraz omijać przeszkody za pomocą czujnika ultradźwiękowego HC-SR04.
+Budowa samochodu zdalnie sterowanego RC w karoserii Ferrari SF90 XX Stradale, sterowanego za pomocą kontrolera PlayStation 5. Projekt oparty na mikrokontrolerze STM32 Nucleo-F401RE z modułem Raspberry Pi Zero 2W jako mostem Bluetooth. Pojazd porusza się autonomicznie po linii (8-kanałowy czujnik IR) oraz omija przeszkody za pomocą czujnika ultradźwiękowego HC-SR04.
 
 ---
 
 ## Główne funkcje
 
-- Sterowanie przez pad PS5 (Bluetooth)
-- Jazda po linii (line follower)
+- Sterowanie przez pad PS5 (Bluetooth via Raspberry Pi Zero 2W)
+- Jazda po linii (line follower) – 8-kanałowy czujnik IR (2 moduły)
 - Omijanie przeszkód – czujnik HC-SR04
-- Symulacja świateł samochodowych (LED czerwony, niebieski, żółty)
-- Wyświetlanie informacji na LCD
-- Sterowanie serwomechanizmem (skręt)
+- Wyświetlacz trybu jazdy – lewy okrągły TFT 1.28" GC9A01
+- Wyświetlacz prędkości – prawy okrągły TFT 1.28" GC9A01
+- Wyświetlacz stanu PS5 – centralny prostokątny TFT 2.0" GMT020-02-7P
+- Sterowanie serwomechanizmem Digital Servo 21G S007M (skręt)
 
 ---
 
@@ -21,44 +28,34 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działające
 
 | Komponent | Ilość |
 |---|---|
-| STM32 Nucleo F401RE (ARM Cortex M4) | 1x |
-| TB6612FNG – sterownik silników 13,5V/1A | 2x |
-| Silnik N20-BT03 micro 10:1 3000RPM 12V | 4x |
-| Micro servo NB-S007M (cyfrowy) | 1x |
-| Wyświetlacz LCD (16-pin, tryb 4-bit) | 1x |
+| STM32 NUCLEO-F401RE (ARM Cortex M4) | 1x |
+| Raspberry Pi Zero 2W | 1x |
+| Silnik N20-BT03 micro 10:1 3000RPM - 12V | 4x |
+| TB6612FNG – dwukanałowy sterownik silników (Pololu 713) | 2x |
+| Digital Servo 21G Model S007M | 1x |
+| Karoseria Ferrari SF90 XX Stradale (hollow shell body) | 1x |
+| Koła 1,9-calowe (65 mm, opony 12 mm Hex) | 4x |
+| Sześciokątny adapter do kół (12mm/3mm – Pololu 2682) | 4x |
 | Czujnik HC-SR04 | 1x |
-| LED czerwony | 2x |
-| LED niebieski | 4x |
-| LED żółty | 2x |
+| 8-kanałowy moduł czujnika śledzenia IR (detektor podczerwieni) | 2x |
+| Wyświetlacz 1.28 TFT (240x240, IC:GC9A01) | 2x |
+| Wyświetlacz 2.0 TFT SPI (GMT020-02-7P) | 1x |
+| Koszyk na akumulatory 3x18650 | 1x |
+| Wskaźnik poziomu baterii DC7-40V (Lipo/Acid) | 1x |
+| Złącze żeńskie typu C (Port ładowania 3A) | 1x |
+| RC Car Metal Magnet Body Shell | 4x |
 
 ---
 
 ## Schemat podłączenia
 
-### Wyświetlacz LCD (tryb 4-bit, HD44780)
+### Digital Servo 21G Model S007M
 
-| Pin LCD | Funkcja    | Pin Nucleo | Uwagi              |
-|---------|------------|------------|--------------------|
-| 1 (GND) | VSS        | GND        |                    |
-| 2 (VDD) | VCC        | +5V        |                    |
-| 3 (VO)  | Kontrast   | GND / pot. | pot. 10k zalecany  |
-| 4 (RS)  | RS         | PC10       | GPIO Output        |
-| 5 (RW)  | R/W        | GND        | na stałe           |
-| 6 (E)   | Enable     | PC12       | GPIO Output        |
-| 11 (D4) | DB4        | PC0        | GPIO Output        |
-| 12 (D5) | DB5        | PC1        | GPIO Output        |
-| 13 (D6) | DB6        | PC2        | GPIO Output        |
-| 14 (D7) | DB7        | PC3        | GPIO Output        |
-| 15 (BLA)| Backlight+ | +5V        |                    |
-| 16 (BLK)| Backlight- | GND        |                    |
-
-### Micro servo NB-S007M (cyfrowy)
-
-| Przewód       | Pin Nucleo | Funkcja            |
-|---------------|------------|--------------------|
-| Żółty (sygnał)| PB6        | TIM4 CH1, AF2, PWM |
-| Czerwony (VCC)| +5V        | CN7 pin 18         |
-| Brązowy (GND) | GND        |                    |
+| Przewód        | Pin Nucleo / Złącze | Funkcja     |
+|----------------|---------------------|-------------|
+| Żółty (sygnał) | PB6 [TIM4 CH1, AF2] | Sygnał PWM  |
+| Czerwony (VCC) | +5V (CN7 pin 18)    | VCC         |
+| Brązowy (GND)  | GND                 | Masa        |
 
 > Zworka: PA6–PA5
 
@@ -96,6 +93,22 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działające
 
 > Piny zostaną przypisane przy implementacji modułu omijania przeszkód.
 
+### Czujniki IR (8-kanałowe moduły śledzenia linii)
+
+> Piny zostaną przypisane przy implementacji modułu line follower.
+
+### Wyświetlacze TFT
+
+Trzy wyświetlacze zamontowane na tyle pojazdu:
+
+| Pozycja   | Model                | Interfejs | Funkcja                                              |
+|-----------|----------------------|-----------|------------------------------------------------------|
+| Lewy      | 1.28 TFT GC9A01      | SPI       | Tryb jazdy (Comfort / Comfort+ / Sport / Sport+)     |
+| Prawy     | 1.28 TFT GC9A01      | SPI       | Prędkość (prędkościomierz z animacją)                |
+| Centralny | 2.0 TFT GMT020-02-7P | SPI       | Status połączenia PS5 (animacje / gify)              |
+
+> Piny SPI zostaną przypisane przy implementacji modułu wyświetlaczy.
+
 ### Podsumowanie zajętych timerów
 
 | Timer    | Kanał | Pin | Zastosowanie      |
@@ -103,7 +116,7 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działające
 | TIM1     | CH1   | PA8 | Mostek2 PWMA      |
 | TIM3     | CH1   | PB4 | Mostek1 PWMA      |
 | TIM3     | CH2   | PC7 | Mostek2 PWMB      |
-| TIM4     | CH1   | PB6 | Servo SG90        |
+| TIM4     | CH1   | PB6 | Servo S007M       |
 | TIM4     | CH4   | PB9 | Mostek1 PWMB      |
 
 ---
@@ -111,6 +124,10 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działające
 ## Platforma
 
 **STM32 Nucleo F401RE** – mikrokontroler STM32F401RE, rdzeń ARM Cortex-M4, zasilanie 3,3V / 5V przez złącza CN7/CN10.
+
+**Raspberry Pi Zero 2W** – most Bluetooth/UART między kontrolerem PS5 a STM32. Odbiera dane z pada przez Bluetooth i przesyła komendy do STM32 przez UART.
+
+**Zasilanie:** Koszyk na 3 ogniwa 18650, wskaźnik poziomu baterii DC7-40V, ładowanie przez złącze USB-C 3A.
 
 ---
 

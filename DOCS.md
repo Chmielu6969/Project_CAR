@@ -1,4 +1,4 @@
-# Dokumentacja techniczna – Projekt CAR
+# Dokumentacja techniczna – RC_CAR Ferrari SF90 XX Stradale
 
 ## Platforma
 
@@ -8,34 +8,26 @@
 - Flash: 512 KB, RAM: 96 KB
 - Zasilanie: 3,3 V / 5 V przez złącza CN7 / CN10
 
+**Raspberry Pi Zero 2W**
+- Most Bluetooth/UART między kontrolerem PS5 a STM32
+- Skrypty Python odbierają dane z pada DualSense przez Bluetooth i przesyłają komendy przez UART (GPIO14 TX → PA10 RX STM32)
+
+**Zasilanie**
+- Koszyk na 3 ogniwa 18650
+- Wskaźnik poziomu baterii DC7-40V (Lipo/Acid)
+- Ładowanie przez złącze USB-C 3A
+
 ---
 
 ## Schemat podłączenia
 
-### Wyświetlacz LCD (HD44780, tryb 4-bit)
+### Digital Servo 21G Model S007M
 
-| Pin LCD    | Funkcja    | Pin Nucleo | Uwagi              |
-|------------|------------|------------|--------------------|
-| 1 (GND)    | VSS        | GND        |                    |
-| 2 (VDD)    | VCC        | +5V        |                    |
-| 3 (VO)     | Kontrast   | GND / pot. | pot. 10k zalecany  |
-| 4 (RS)     | RS         | PC10       | GPIO Output        |
-| 5 (RW)     | R/W        | GND        | na stałe           |
-| 6 (E)      | Enable     | PC12       | GPIO Output        |
-| 11 (D4)    | DB4        | PC0        | GPIO Output        |
-| 12 (D5)    | DB5        | PC1        | GPIO Output        |
-| 13 (D6)    | DB6        | PC2        | GPIO Output        |
-| 14 (D7)    | DB7        | PC3        | GPIO Output        |
-| 15 (BLA)   | Backlight+ | +5V        |                    |
-| 16 (BLK)   | Backlight- | GND        |                    |
-
-### Micro servo NB-S007M (cyfrowy)
-
-| Przewód        | Pin Nucleo | Funkcja            |
-|----------------|------------|--------------------|
-| Żółty (sygnał) | PB6        | TIM4 CH1, AF2, PWM |
-| Czerwony (VCC) | +5V        | CN7 pin 18         |
-| Brązowy (GND)  | GND        |                    |
+| Przewód        | Pin Nucleo / Złącze | Funkcja     |
+|----------------|---------------------|-------------|
+| Żółty (sygnał) | PB6 [TIM4 CH1, AF2] | Sygnał PWM  |
+| Czerwony (VCC) | +5V (CN7 pin 18)    | VCC         |
+| Brązowy (GND)  | GND                 | Masa        |
 
 > Zworka: PA6–PA5
 
@@ -75,6 +67,20 @@
 
 Piny zostaną przypisane przy implementacji Modułu 3 (omijanie przeszkód).
 
+### Czujniki IR (8-kanałowe moduły śledzenia linii)
+
+Piny zostaną przypisane przy implementacji modułu line follower. Projekt używa 2 modułów 8-kanałowych (łącznie 16 czujników).
+
+### Wyświetlacze TFT (na tyle pojazdu)
+
+| Pozycja   | Model                | Interfejs | Funkcja                                          |
+|-----------|----------------------|-----------|--------------------------------------------------|
+| Lewy      | 1.28 TFT GC9A01      | SPI       | Tryb jazdy (Comfort / Comfort+ / Sport / Sport+) |
+| Prawy     | 1.28 TFT GC9A01      | SPI       | Prędkość (prędkościomierz z animacją)            |
+| Centralny | 2.0 TFT GMT020-02-7P | SPI       | Status połączenia PS5 (animacje / gify)          |
+
+Piny SPI zostaną przypisane przy implementacji modułu wyświetlaczy.
+
 ---
 
 ## Przypisanie timerów
@@ -84,7 +90,7 @@ Piny zostaną przypisane przy implementacji Modułu 3 (omijanie przeszkód).
 | TIM1  | CH1   | PA8 | Mostek 2 PWMA  |
 | TIM3  | CH1   | PB4 | Mostek 1 PWMA  |
 | TIM3  | CH2   | PC7 | Mostek 2 PWMB  |
-| TIM4  | CH1   | PB6 | Servo SG90     |
+| TIM4  | CH1   | PB6 | Servo S007M    |
 | TIM4  | CH4   | PB9 | Mostek 1 PWMB  |
 
 TIM4 jest skonfigurowany z okresem 20 000 µs (50 Hz) dla sygnału PWM serwa.
@@ -98,17 +104,20 @@ TIM1, TIM3 są skonfigurowane z okresem 1000 taktów dla PWM silników.
 Project_CAR/
 ├── Core/
 │   ├── Inc/
-│   │   ├── joystick.h       # Joystick analogowy HW-504 (ADC)
-│   │   ├── lcd.h            # Sterownik LCD HD44780 (4-bit)
 │   │   ├── motor.h          # Sterownik silników N20 (TB6612FNG)
-│   │   ├── servo.h          # Sterownik serwomechanizmu SG90
+│   │   ├── servo.h          # Sterownik serwomechanizmu Digital Servo 21G S007M
 │   │   └── main.h           # Definicje pinów GPIO (generowane przez CubeMX)
 │   └── Src/
-│       ├── joystick.c       # Odczyt osi X/Y przez ADC, kalibracja, przycisk SW
-│       ├── lcd.c            # Komunikacja z LCD w trybie 4-bit
 │       ├── motor.c          # Sterowanie dwoma mostkami TB6612FNG
 │       ├── servo.c          # Sterowanie PWM przez TIM4 CH1
 │       └── main.c           # Inicjalizacja peryferiów, główna pętla sterowania
+├── Raspberry/               # Skrypty Python – most PS5 Bluetooth → STM32 UART
+│   ├── ps5/
+│   │   ├── ps5_controller.py
+│   │   └── ps5_test.py
+│   ├── uart/
+│   │   └── uart_sender.py
+│   └── README.md
 ├── Drivers/                 # STM32 HAL + CMSIS (generowane przez CubeMX)
 ├── Project_CAR.ioc          # Konfiguracja STM32CubeMX
 └── STM32F401RETX_FLASH.ld   # Skrypt linkera
@@ -141,12 +150,4 @@ Obsługuje dwa mostki TB6612FNG sterujące czterema silnikami N20. Eksponuje fun
 
 ### `servo.c` – sterownik serwa
 
-Generuje sygnał PWM 50 Hz przez TIM4 CH1 dla serwomechanizmu cyfrowego NB-S007M. Funkcja `Servo_SetPulse(us)` przyjmuje szerokość impulsu w mikrosekundach (500–2500 µs). Stałe `SERVO_LEFT_US`, `SERVO_CENTER_US`, `SERVO_RIGHT_US` definiują skrajne pozycje. Sterowanie z padu PS5 (oś LSX) realizuje wygładzanie wykładnicze z deadbandem 3 µs – zapobiega to buzzowaniu charakterystycznemu dla serw cyfrowych.
-
-### `lcd.c` – sterownik LCD
-
-Implementacja protokołu HD44780 w trybie 4-bit. Udostępnia funkcje `LCD_Init()`, `LCD_Print(str)`, `LCD_SetCursor(row, col)` i `LCD_Clear()`. Komunikacja odbywa się przez GPIO bez użycia sprzętowego interfejsu szeregowego.
-
-### `joystick.c` – odczyt joysticka
-
-Odczytuje dwie osie (X, Y) przez ADC1 (kanały 0 i 1, rozdzielczość 12-bit). Funkcja `Joystick_Calibrate()` uśrednia 16 próbek przy starcie i zapamiętuje punkt zerowy. `Joystick_Read()` zwraca wartości ze znakiem względem skalibrowanego środka oraz stan przycisku SW.
+Generuje sygnał PWM 50 Hz przez TIM4 CH1 dla serwomechanizmu cyfrowego Digital Servo 21G S007M. Funkcja `Servo_SetPulse(us)` przyjmuje szerokość impulsu w mikrosekundach (500–2500 µs). Stałe `SERVO_LEFT_US`, `SERVO_CENTER_US`, `SERVO_RIGHT_US` definiują skrajne pozycje. Sterowanie z padu PS5 (oś LSX) realizuje wygładzanie wykładnicze z deadbandem 3 µs – zapobiega to buzzowaniu charakterystycznemu dla serw cyfrowych.
