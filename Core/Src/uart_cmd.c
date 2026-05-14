@@ -11,9 +11,13 @@ static uint8_t line_pos = 0;
 
 static volatile uint8_t  cross_state    = 0;
 static volatile float    lsx_value      = 0.0f;
-static volatile uint32_t lsx_last_tick  = 0;    /* timestamp of last LSX command */
+static volatile uint32_t lsx_last_tick  = 0;
+static volatile float    r2_value       = 0.0f;
+static volatile uint32_t r2_last_tick   = 0;
+static volatile float    l2_value       = 0.0f;
+static volatile uint32_t l2_last_tick   = 0;
 
-#define LSX_TIMEOUT_MS  300U  /* return 0.0 if no LSX received within this time */
+#define TRIGGER_TIMEOUT_MS  300U  /* return 0.0 if no command received within this time */
 
 static void parse_line(void)
 {
@@ -32,6 +36,16 @@ static void parse_line(void)
     {
         lsx_value     = strtof(val, NULL);
         lsx_last_tick = HAL_GetTick();
+    }
+    else if (strcmp(cmd, "R2") == 0)
+    {
+        r2_value     = strtof(val, NULL);
+        r2_last_tick = HAL_GetTick();
+    }
+    else if (strcmp(cmd, "L2") == 0)
+    {
+        l2_value     = strtof(val, NULL);
+        l2_last_tick = HAL_GetTick();
     }
 }
 
@@ -77,7 +91,21 @@ uint8_t UartCmd_GetCross(void)
 
 float UartCmd_GetLSX(void)
 {
-    if ((HAL_GetTick() - lsx_last_tick) > LSX_TIMEOUT_MS)
+    if ((HAL_GetTick() - lsx_last_tick) > TRIGGER_TIMEOUT_MS)
         return 0.0f;
     return lsx_value;
+}
+
+float UartCmd_GetR2(void)
+{
+    if ((HAL_GetTick() - r2_last_tick) > TRIGGER_TIMEOUT_MS)
+        return 0.0f;
+    return r2_value;
+}
+
+float UartCmd_GetL2(void)
+{
+    if ((HAL_GetTick() - l2_last_tick) > TRIGGER_TIMEOUT_MS)
+        return 0.0f;
+    return l2_value;
 }
