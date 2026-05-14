@@ -35,6 +35,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define SERVO_MAX_DEFLECT_US  300U   /* 30% of 1000 us half-range */
+#define SERVO_SLEW_STEP_US     50U   /* us moved per 50 ms loop tick (~300 ms full travel) */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -68,9 +70,10 @@ static uint8_t  prev_msg_idx  = 0xFF;
 static uint32_t joy_last_tick = 0;
 
 /* Track previous state to redraw LCD only on change */
-static MotorDir_t prev_motor_dir = MOTOR_STOP;
-static uint16_t   prev_servo_us  = SERVO_CENTER_US;
-static uint8_t    prev_cross     = 0xFF;
+static MotorDir_t prev_motor_dir  = MOTOR_STOP;
+static uint16_t   prev_servo_us   = SERVO_CENTER_US;
+static uint16_t   servo_current_us = SERVO_CENTER_US; /* slew rate tracking */
+static uint8_t    prev_cross      = 0xFF;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -168,14 +171,26 @@ int main(void)
     else
       motor_dir = MOTOR_STOP;
 
-    /* --- X axis → servo (lewo / prawo / środek) --- */
-    uint16_t servo_us;
-    if (joy.x < -JOY_DEADZONE)
-      servo_us = SERVO_LEFT_US;
-    else if (joy.x > JOY_DEADZONE)
-      servo_us = SERVO_RIGHT_US;
-    else
-      servo_us = SERVO_CENTER_US;
+    /* --- PS5 left stick X → servo (±30%, slew rate) --- */
+    float lsx = UartCmd_GetLSX();
+    int32_t target_us = (int32_t)SERVO_CENTER_US + (int32_t)(lsx * (float)SERVO_MAX_DEFLECT_US);
+    if (target_us < (int32_t)(SERVO_CENTER_US - SERVO_MAX_DEFLECT_US))
+        target_us = (int32_t)(SERVO_CENTER_US - SERVO_MAX_DEFLECT_US);
+    if (target_us > (int32_t)(SERVO_CENTER_US + SERVO_MAX_DEFLECT_US))
+        target_us = (int32_t)(SERVO_CENTER_US + SERVO_MAX_DEFLECT_US);
+
+    /* Move current position toward target by SERVO_SLEW_STEP_US per tick */
+    if ((int32_t)servo_current_us < target_us)
+    {
+        servo_current_us += SERVO_SLEW_STEP_US;
+        if ((int32_t)servo_current_us > target_us) servo_current_us = (uint16_t)target_us;
+    }
+    else if ((int32_t)servo_current_us > target_us)
+    {
+        servo_current_us -= SERVO_SLEW_STEP_US;
+        if ((int32_t)servo_current_us < target_us) servo_current_us = (uint16_t)target_us;
+    }
+    uint16_t servo_us = servo_current_us;
 
     /* --- Aktualizuj silniki i servo tylko gdy zmiana --- */
     uint8_t lcd_row1_changed = 0;
@@ -187,9 +202,9 @@ int main(void)
       lcd_row1_changed = 1;
     }
 
+    Servo_SetPulse(servo_us);
     if (servo_us != prev_servo_us)
     {
-      Servo_SetPulse(servo_us);
       prev_servo_us = servo_us;
       lcd_row1_changed = 1;
     }
@@ -207,9 +222,9 @@ int main(void)
       const char *m_str = (motor_dir == MOTOR_FORWARD)  ? "M:PRZOD " :
                           (motor_dir == MOTOR_BACKWARD) ? "M:TYL   " :
                                                           "M:STOP  ";
-      const char *s_str = (servo_us == SERVO_LEFT_US)   ? "S:LEWO  " :
-                          (servo_us == SERVO_RIGHT_US)  ? "S:PRAWO " :
-                                                          "S:SRODEK";
+      const char *s_str = (lsx < -0.2f) ? "S:LEWO  " :
+                          (lsx >  0.2f) ? "S:PRAWO " :
+                                          "S:SRODEK";
       LCD_SetCursor(1, 0);
       LCD_Print(m_str);
       LCD_SetCursor(1, 8);

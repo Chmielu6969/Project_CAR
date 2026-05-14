@@ -1,5 +1,6 @@
 #include "uart_cmd.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define LINE_BUF_SIZE 64U
 
@@ -9,6 +10,7 @@ static char    line_buf[LINE_BUF_SIZE];
 static uint8_t line_pos = 0;
 
 static volatile uint8_t cross_state = 0;
+static volatile float   lsx_value   = 0.0f;  /* left stick X: -1.0 … 1.0 */
 
 static void parse_line(void)
 {
@@ -22,6 +24,10 @@ static void parse_line(void)
     if (strcmp(cmd, "CROSS") == 0)
     {
         cross_state = (val[0] == '1') ? 1U : 0U;
+    }
+    else if (strcmp(cmd, "LSX") == 0)
+    {
+        lsx_value = strtof(val, NULL);
     }
 }
 
@@ -63,4 +69,9 @@ void UartCmd_Init(UART_HandleTypeDef *huart)
 uint8_t UartCmd_GetCross(void)
 {
     return cross_state;
+}
+
+float UartCmd_GetLSX(void)
+{
+    return lsx_value;
 }

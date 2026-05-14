@@ -37,8 +37,11 @@ def format_commands(state, prev_state):
     """
     commands = []
 
-    for stick, key in (("LSX", "left_stick_x"), ("LSY", "left_stick_y"),
-                       ("RSX", "right_stick_x"), ("RSY", "right_stick_y")):
+    # LSX always sent (including 0.00) so servo returns to center on release
+    for stick, key in (("LSX", "left_stick_x"), ("LSY", "left_stick_y")):
+        commands.append(f"{stick}:{state[key]:.2f}")
+
+    for stick, key in (("RSX", "right_stick_x"), ("RSY", "right_stick_y")):
         if state[key] != 0.0:
             commands.append(f"{stick}:{state[key]:.2f}")
 
