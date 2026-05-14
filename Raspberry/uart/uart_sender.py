@@ -22,7 +22,7 @@ UART_BAUDRATE    = 115200
 UART_RECONNECT   = 5.0  # seconds between UART reconnection attempts
 
 # How often to poll controller state [seconds]
-SEND_INTERVAL = 0.05
+SEND_INTERVAL = 0.005
 
 _BUTTONS = ('cross', 'circle', 'triangle', 'square',
             'l1', 'r1', 'l3', 'r3', 'share', 'options', 'ps')

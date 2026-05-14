@@ -3,7 +3,7 @@
 
 #include "main.h"
 
-/* SG90 pulse widths in microseconds (1 tick = 1 us at 1 MHz timer clock) */
+/* NB-S007M digital servo – pulse widths in microseconds (1 tick = 1 us at 1 MHz timer clock) */
 #define SERVO_LEFT_US    500U   /* 0 degrees   */
 #define SERVO_CENTER_US  1500U  /* 90 degrees  */
 #define SERVO_RIGHT_US   2500U  /* 180 degrees */

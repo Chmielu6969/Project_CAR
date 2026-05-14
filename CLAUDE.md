@@ -24,7 +24,7 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działające
 | STM32 Nucleo F401RE (ARM Cortex M4) | 1x |
 | TB6612FNG – sterownik silników 13,5V/1A | 2x |
 | Silnik N20-BT03 micro 10:1 3000RPM 12V | 4x |
-| Micro servo 9g SG90 | 1x |
+| Micro servo NB-S007M (cyfrowy) | 1x |
 | Wyświetlacz LCD (16-pin, tryb 4-bit) | 1x |
 | Czujnik HC-SR04 | 1x |
 | LED czerwony | 2x |
@@ -52,7 +52,7 @@ Budowa zdalnie sterowanego samochodu z użyciem pada PlayStation 5, działające
 | 15 (BLA)| Backlight+ | +5V        |                    |
 | 16 (BLK)| Backlight- | GND        |                    |
 
-### Micro servo 9g SG90
+### Micro servo NB-S007M (cyfrowy)
 
 | Przewód       | Pin Nucleo | Funkcja            |
 |---------------|------------|--------------------|

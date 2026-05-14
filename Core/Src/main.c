@@ -35,8 +35,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SERVO_MAX_DEFLECT_US  300U   /* 30% of 1000 us half-range */
-#define SERVO_SLEW_STEP_US     50U   /* us moved per 50 ms loop tick (~300 ms full travel) */
+#define SERVO_MAX_DEFLECT_US  450U   /* 45% of 1000 us half-range */
+#define SERVO_SMOOTH_DIV       12U   /* exponential smoothing: move 1/12 of remaining gap per 5 ms tick */
+#define SERVO_DEADBAND_US       3U   /* ignore differences smaller than this – prevents digital servo hunting */
+#define SLOW_TASK_TICKS        10U   /* run slow tasks every 10 × 5 ms = 50 ms */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -70,10 +72,11 @@ static uint8_t  prev_msg_idx  = 0xFF;
 static uint32_t joy_last_tick = 0;
 
 /* Track previous state to redraw LCD only on change */
-static MotorDir_t prev_motor_dir  = MOTOR_STOP;
-static uint16_t   prev_servo_us   = SERVO_CENTER_US;
-static uint16_t   servo_current_us = SERVO_CENTER_US; /* slew rate tracking */
-static uint8_t    prev_cross      = 0xFF;
+static MotorDir_t prev_motor_dir   = MOTOR_STOP;
+static uint16_t   prev_servo_us    = SERVO_CENTER_US;
+static uint16_t   servo_current_us = SERVO_CENTER_US;
+static uint8_t    prev_cross       = 0xFF;
+static uint8_t    loop_tick        = 0;   /* counts 10 ms ticks, resets at SLOW_TASK_TICKS */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -148,101 +151,106 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    JoystickData_t joy;
-    Joystick_Read(&joy);
 
-    /* --- Joystick button: cycle LCD row 0 message (debounced) --- */
-    if (joy.btn_pressed)
+    /* === SERVO: co 10 ms – wysoka częstotliwość dla płynnego ruchu === */
     {
-      uint32_t now = HAL_GetTick();
-      if ((now - joy_last_tick) >= JOY_DEBOUNCE_MS)
+      float lsx = UartCmd_GetLSX();
+      int32_t target_us = (int32_t)SERVO_CENTER_US + (int32_t)(lsx * (float)SERVO_MAX_DEFLECT_US);
+      if (target_us < (int32_t)(SERVO_CENTER_US - SERVO_MAX_DEFLECT_US))
+          target_us = (int32_t)(SERVO_CENTER_US - SERVO_MAX_DEFLECT_US);
+      if (target_us > (int32_t)(SERVO_CENTER_US + SERVO_MAX_DEFLECT_US))
+          target_us = (int32_t)(SERVO_CENTER_US + SERVO_MAX_DEFLECT_US);
+
+      /* Exponential smoothing z deadbandem – zapobiega buzzowaniu serwa cyfrowego */
+      int32_t diff = target_us - (int32_t)servo_current_us;
+      if (diff > (int32_t)SERVO_DEADBAND_US || diff < -(int32_t)SERVO_DEADBAND_US)
       {
-        joy_last_tick = now;
-        msg_idx = (msg_idx + 1) % LCD_MSG_COUNT;
+          int32_t step = diff / (int32_t)SERVO_SMOOTH_DIV;
+          if (step == 0) step = (diff > 0) ? 1 : -1;
+          servo_current_us = (uint16_t)((int32_t)servo_current_us + step);
+          Servo_SetPulse(servo_current_us);
       }
     }
 
-    /* --- Y axis → silniki (przód / tył / stop) --- */
-    MotorDir_t motor_dir;
-    if (joy.y < -JOY_DEADZONE)
-      motor_dir = MOTOR_FORWARD;
-    else if (joy.y > JOY_DEADZONE)
-      motor_dir = MOTOR_BACKWARD;
-    else
-      motor_dir = MOTOR_STOP;
-
-    /* --- PS5 left stick X → servo (±30%, slew rate) --- */
-    float lsx = UartCmd_GetLSX();
-    int32_t target_us = (int32_t)SERVO_CENTER_US + (int32_t)(lsx * (float)SERVO_MAX_DEFLECT_US);
-    if (target_us < (int32_t)(SERVO_CENTER_US - SERVO_MAX_DEFLECT_US))
-        target_us = (int32_t)(SERVO_CENTER_US - SERVO_MAX_DEFLECT_US);
-    if (target_us > (int32_t)(SERVO_CENTER_US + SERVO_MAX_DEFLECT_US))
-        target_us = (int32_t)(SERVO_CENTER_US + SERVO_MAX_DEFLECT_US);
-
-    /* Move current position toward target by SERVO_SLEW_STEP_US per tick */
-    if ((int32_t)servo_current_us < target_us)
+    /* === WOLNE ZADANIA: joystick, silniki, LCD, CROSS – co 50 ms === */
+    loop_tick++;
+    if (loop_tick >= SLOW_TASK_TICKS)
     {
-        servo_current_us += SERVO_SLEW_STEP_US;
-        if ((int32_t)servo_current_us > target_us) servo_current_us = (uint16_t)target_us;
-    }
-    else if ((int32_t)servo_current_us > target_us)
-    {
-        servo_current_us -= SERVO_SLEW_STEP_US;
-        if ((int32_t)servo_current_us < target_us) servo_current_us = (uint16_t)target_us;
-    }
-    uint16_t servo_us = servo_current_us;
+      loop_tick = 0;
 
-    /* --- Aktualizuj silniki i servo tylko gdy zmiana --- */
-    uint8_t lcd_row1_changed = 0;
+      JoystickData_t joy;
+      Joystick_Read(&joy);
 
-    if (motor_dir != prev_motor_dir)
-    {
-      Motor_SetAll(motor_dir, 700U);
-      prev_motor_dir = motor_dir;
-      lcd_row1_changed = 1;
-    }
+      /* Joystick button: cycle LCD row 0 message (debounced) */
+      if (joy.btn_pressed)
+      {
+        uint32_t now = HAL_GetTick();
+        if ((now - joy_last_tick) >= JOY_DEBOUNCE_MS)
+        {
+          joy_last_tick = now;
+          msg_idx = (msg_idx + 1) % LCD_MSG_COUNT;
+        }
+      }
 
-    Servo_SetPulse(servo_us);
-    if (servo_us != prev_servo_us)
-    {
-      prev_servo_us = servo_us;
-      lcd_row1_changed = 1;
-    }
+      /* Y axis → silniki (przód / tył / stop) */
+      MotorDir_t motor_dir;
+      if (joy.y < -JOY_DEADZONE)
+        motor_dir = MOTOR_FORWARD;
+      else if (joy.y > JOY_DEADZONE)
+        motor_dir = MOTOR_BACKWARD;
+      else
+        motor_dir = MOTOR_STOP;
 
-    /* --- Aktualizuj LCD tylko gdy zmiana stanu --- */
-    if (msg_idx != prev_msg_idx)
-    {
-      LCD_SetCursor(0, 0);
-      LCD_Print(lcd_messages[msg_idx]);
-      prev_msg_idx = msg_idx;
-    }
+      uint8_t lcd_row1_changed = 0;
 
-    if (lcd_row1_changed)
-    {
-      const char *m_str = (motor_dir == MOTOR_FORWARD)  ? "M:PRZOD " :
-                          (motor_dir == MOTOR_BACKWARD) ? "M:TYL   " :
-                                                          "M:STOP  ";
-      const char *s_str = (lsx < -0.2f) ? "S:LEWO  " :
-                          (lsx >  0.2f) ? "S:PRAWO " :
-                                          "S:SRODEK";
-      LCD_SetCursor(1, 0);
-      LCD_Print(m_str);
-      LCD_SetCursor(1, 8);
-      LCD_Print(s_str);
-    }
+      if (motor_dir != prev_motor_dir)
+      {
+        Motor_SetAll(motor_dir, 700U);
+        prev_motor_dir = motor_dir;
+        lcd_row1_changed = 1;
+      }
 
-    /* --- CROSS (pad PS5) → dioda LD2 + LCD wiersz 0 --- */
-    uint8_t cross = UartCmd_GetCross();
-    if (cross != prev_cross)
-    {
-      HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,
-                        (cross == 1U) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-      LCD_SetCursor(0, 0);
-      LCD_Print(cross ? "CROSS: ON       " : "CROSS: OFF      ");
-      prev_cross = cross;
+      if (servo_current_us != prev_servo_us)
+      {
+        prev_servo_us = servo_current_us;
+        lcd_row1_changed = 1;
+      }
+
+      if (msg_idx != prev_msg_idx)
+      {
+        LCD_SetCursor(0, 0);
+        LCD_Print(lcd_messages[msg_idx]);
+        prev_msg_idx = msg_idx;
+      }
+
+      if (lcd_row1_changed)
+      {
+        float lsx_snap = UartCmd_GetLSX();
+        const char *m_str = (motor_dir == MOTOR_FORWARD)  ? "M:PRZOD " :
+                            (motor_dir == MOTOR_BACKWARD) ? "M:TYL   " :
+                                                            "M:STOP  ";
+        const char *s_str = (lsx_snap < -0.2f) ? "S:LEWO  " :
+                            (lsx_snap >  0.2f) ? "S:PRAWO " :
+                                                  "S:SRODEK";
+        LCD_SetCursor(1, 0);
+        LCD_Print(m_str);
+        LCD_SetCursor(1, 8);
+        LCD_Print(s_str);
+      }
+
+      /* CROSS → dioda LD2 + LCD wiersz 0 */
+      uint8_t cross = UartCmd_GetCross();
+      if (cross != prev_cross)
+      {
+        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,
+                          (cross == 1U) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+        LCD_SetCursor(0, 0);
+        LCD_Print(cross ? "CROSS: ON       " : "CROSS: OFF      ");
+        prev_cross = cross;
+      }
     }
 
-    HAL_Delay(50);
+    HAL_Delay(5);
   }
   /* USER CODE END 3 */
 }
