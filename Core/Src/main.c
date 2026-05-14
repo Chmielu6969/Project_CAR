@@ -25,6 +25,7 @@
 #include "servo.h"
 #include "motor.h"
 #include "joystick.h"
+#include "uart_cmd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,6 +35,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define SERVO_MAX_DEFLECT_US  300U   /* 30% of 1000 us half-range */
+#define SERVO_STEER_THRESHOLD   0.3f /* joystick threshold to trigger max deflection */
+#define SLOW_TASK_TICKS         5U   /* run slow tasks every 5 × 10 ms = 50 ms */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,6 +52,8 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim11;
+
+UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Joystick button: cycles through LCD messages */
@@ -65,8 +71,11 @@ static uint8_t  prev_msg_idx  = 0xFF;
 static uint32_t joy_last_tick = 0;
 
 /* Track previous state to redraw LCD only on change */
-static MotorDir_t prev_motor_dir = MOTOR_STOP;
-static uint16_t   prev_servo_us  = SERVO_CENTER_US;
+static MotorDir_t prev_motor_dir   = MOTOR_STOP;
+static uint16_t   prev_servo_us    = SERVO_CENTER_US;
+static uint16_t   servo_current_us = SERVO_CENTER_US;
+static uint8_t    prev_cross       = 0xFF;
+static uint8_t    loop_tick        = 0;   /* counts 10 ms ticks, resets at SLOW_TASK_TICKS */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,6 +86,7 @@ static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -119,6 +129,7 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   LCD_Init();
   LCD_SetCursor(0, 0);
@@ -129,6 +140,7 @@ int main(void)
   Servo_Init();
   Motor_Init();
   Joystick_Calibrate();
+  UartCmd_Init(&huart1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -138,78 +150,98 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    JoystickData_t joy;
-    Joystick_Read(&joy);
 
-    /* --- Joystick button: cycle LCD row 0 message (debounced) --- */
-    if (joy.btn_pressed)
+    /* === SERVO: binary – joystick past threshold → max deflection, else center === */
     {
-      uint32_t now = HAL_GetTick();
-      if ((now - joy_last_tick) >= JOY_DEBOUNCE_MS)
+      float lsx = UartCmd_GetLSX();
+      if (lsx > SERVO_STEER_THRESHOLD)
+          servo_current_us = SERVO_CENTER_US + SERVO_MAX_DEFLECT_US;
+      else if (lsx < -SERVO_STEER_THRESHOLD)
+          servo_current_us = SERVO_CENTER_US - SERVO_MAX_DEFLECT_US;
+      else
+          servo_current_us = SERVO_CENTER_US;
+      Servo_SetPulse(servo_current_us);
+    }
+
+    /* === WOLNE ZADANIA: joystick, silniki, LCD, CROSS – co 50 ms === */
+    loop_tick++;
+    if (loop_tick >= SLOW_TASK_TICKS)
+    {
+      loop_tick = 0;
+
+      JoystickData_t joy;
+      Joystick_Read(&joy);
+
+      /* Joystick button: cycle LCD row 0 message (debounced) */
+      if (joy.btn_pressed)
       {
-        joy_last_tick = now;
-        msg_idx = (msg_idx + 1) % LCD_MSG_COUNT;
+        uint32_t now = HAL_GetTick();
+        if ((now - joy_last_tick) >= JOY_DEBOUNCE_MS)
+        {
+          joy_last_tick = now;
+          msg_idx = (msg_idx + 1) % LCD_MSG_COUNT;
+        }
+      }
+
+      /* Y axis → silniki (przód / tył / stop) */
+      MotorDir_t motor_dir;
+      if (joy.y < -JOY_DEADZONE)
+        motor_dir = MOTOR_FORWARD;
+      else if (joy.y > JOY_DEADZONE)
+        motor_dir = MOTOR_BACKWARD;
+      else
+        motor_dir = MOTOR_STOP;
+
+      uint8_t lcd_row1_changed = 0;
+
+      if (motor_dir != prev_motor_dir)
+      {
+        Motor_SetAll(motor_dir, 700U);
+        prev_motor_dir = motor_dir;
+        lcd_row1_changed = 1;
+      }
+
+      if (servo_current_us != prev_servo_us)
+      {
+        prev_servo_us = servo_current_us;
+        lcd_row1_changed = 1;
+      }
+
+      if (msg_idx != prev_msg_idx)
+      {
+        LCD_SetCursor(0, 0);
+        LCD_Print(lcd_messages[msg_idx]);
+        prev_msg_idx = msg_idx;
+      }
+
+      if (lcd_row1_changed)
+      {
+        float lsx_snap = UartCmd_GetLSX();
+        const char *m_str = (motor_dir == MOTOR_FORWARD)  ? "M:PRZOD " :
+                            (motor_dir == MOTOR_BACKWARD) ? "M:TYL   " :
+                                                            "M:STOP  ";
+        const char *s_str = (lsx_snap < -0.2f) ? "S:LEWO  " :
+                            (lsx_snap >  0.2f) ? "S:PRAWO " :
+                                                  "S:SRODEK";
+        LCD_SetCursor(1, 0);
+        LCD_Print(m_str);
+        LCD_SetCursor(1, 8);
+        LCD_Print(s_str);
+      }
+
+      /* CROSS → dioda LD2 + LCD wiersz 0 */
+      uint8_t cross = UartCmd_GetCross();
+      if (cross != prev_cross)
+      {
+        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,
+                          (cross == 1U) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+        LCD_SetCursor(0, 0);
+        LCD_Print(cross ? "CROSS: ON       " : "CROSS: OFF      ");
+        prev_cross = cross;
       }
     }
 
-    /* --- Y axis → silniki (przód / tył / stop) --- */
-    MotorDir_t motor_dir;
-    if (joy.y < -JOY_DEADZONE)
-      motor_dir = MOTOR_FORWARD;
-    else if (joy.y > JOY_DEADZONE)
-      motor_dir = MOTOR_BACKWARD;
-    else
-      motor_dir = MOTOR_STOP;
-
-    /* --- X axis → servo (lewo / prawo / środek) --- */
-    uint16_t servo_us;
-    if (joy.x < -JOY_DEADZONE)
-      servo_us = SERVO_LEFT_US;
-    else if (joy.x > JOY_DEADZONE)
-      servo_us = SERVO_RIGHT_US;
-    else
-      servo_us = SERVO_CENTER_US;
-
-    /* --- Aktualizuj silniki i servo tylko gdy zmiana --- */
-    uint8_t lcd_row1_changed = 0;
-
-    if (motor_dir != prev_motor_dir)
-    {
-      Motor_SetAll(motor_dir, 700U);
-      prev_motor_dir = motor_dir;
-      lcd_row1_changed = 1;
-    }
-
-    if (servo_us != prev_servo_us)
-    {
-      Servo_SetPulse(servo_us);
-      prev_servo_us = servo_us;
-      lcd_row1_changed = 1;
-    }
-
-    /* --- Aktualizuj LCD tylko gdy zmiana stanu --- */
-    if (msg_idx != prev_msg_idx)
-    {
-      LCD_SetCursor(0, 0);
-      LCD_Print(lcd_messages[msg_idx]);
-      prev_msg_idx = msg_idx;
-    }
-
-    if (lcd_row1_changed)
-    {
-      const char *m_str = (motor_dir == MOTOR_FORWARD)  ? "M:PRZOD " :
-                          (motor_dir == MOTOR_BACKWARD) ? "M:TYL   " :
-                                                          "M:STOP  ";
-      const char *s_str = (servo_us == SERVO_LEFT_US)   ? "S:LEWO  " :
-                          (servo_us == SERVO_RIGHT_US)  ? "S:PRAWO " :
-                                                          "S:SRODEK";
-      LCD_SetCursor(1, 0);
-      LCD_Print(m_str);
-      LCD_SetCursor(1, 8);
-      LCD_Print(s_str);
-    }
-
-    HAL_Delay(50);
+    HAL_Delay(10);
   }
   /* USER CODE END 3 */
 }
@@ -560,6 +592,39 @@ static void MX_TIM11_Init(void)
 }
 
 /**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -579,7 +644,7 @@ static void MX_GPIO_Init(void)
                           |LCD_RS_Pin|LCD_E_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(M2_AIN2_GPIO_Port, M2_AIN2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, M2_AIN2_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, M1_STDBY_Pin|M1_AIN1_Pin|M1_AIN2_Pin|M1_BIN1_Pin
@@ -608,12 +673,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(JOY_SW_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : M2_AIN2_Pin */
-  GPIO_InitStruct.Pin = M2_AIN2_Pin;
+  /*Configure GPIO pins : M2_AIN2_Pin LD2_Pin */
+  GPIO_InitStruct.Pin = M2_AIN2_Pin|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(M2_AIN2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : M1_STDBY_Pin M1_AIN1_Pin M1_AIN2_Pin M1_BIN1_Pin
                            M1_BIN2_Pin */

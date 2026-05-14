@@ -29,7 +29,7 @@
 | 15 (BLA)   | Backlight+ | +5V        |                    |
 | 16 (BLK)   | Backlight- | GND        |                    |
 
-### Micro servo SG90
+### Micro servo NB-S007M (cyfrowy)
 
 | Przewód        | Pin Nucleo | Funkcja            |
 |----------------|------------|--------------------|
@@ -38,6 +38,8 @@
 | Brązowy (GND)  | GND        |                    |
 
 > Zworka: PA6–PA5
+
+> Servo cyfrowe – zakres impulsu 500–2500 µs, PWM 50 Hz. Reaguje precyzyjniej niż analogowe; zastosowano deadband 3 µs i wygładzanie wykładnicze aby zapobiec buzzowaniu.
 
 ### Silniki N20 – Mostek 1 (TB6612FNG)
 
@@ -139,7 +141,7 @@ Obsługuje dwa mostki TB6612FNG sterujące czterema silnikami N20. Eksponuje fun
 
 ### `servo.c` – sterownik serwa
 
-Generuje sygnał PWM 50 Hz przez TIM4 CH1. Funkcja `Servo_SetPulse(us)` przyjmuje szerokość impulsu w mikrosekundach. Stałe `SERVO_LEFT_US`, `SERVO_CENTER_US`, `SERVO_RIGHT_US` definiują skrajne pozycje.
+Generuje sygnał PWM 50 Hz przez TIM4 CH1 dla serwomechanizmu cyfrowego NB-S007M. Funkcja `Servo_SetPulse(us)` przyjmuje szerokość impulsu w mikrosekundach (500–2500 µs). Stałe `SERVO_LEFT_US`, `SERVO_CENTER_US`, `SERVO_RIGHT_US` definiują skrajne pozycje. Sterowanie z padu PS5 (oś LSX) realizuje wygładzanie wykładnicze z deadbandem 3 µs – zapobiega to buzzowaniu charakterystycznemu dla serw cyfrowych.
 
 ### `lcd.c` – sterownik LCD
 

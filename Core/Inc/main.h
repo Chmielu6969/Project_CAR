@@ -77,6 +77,8 @@ void Error_Handler(void);
 #define JOY_SW_GPIO_Port GPIOA
 #define M2_AIN2_Pin GPIO_PIN_4
 #define M2_AIN2_GPIO_Port GPIOA
+#define LD2_Pin GPIO_PIN_5
+#define LD2_GPIO_Port GPIOA
 #define M2_BIN1_Pin GPIO_PIN_4
 #define M2_BIN1_GPIO_Port GPIOC
 #define M2_BIN2_Pin GPIO_PIN_5
