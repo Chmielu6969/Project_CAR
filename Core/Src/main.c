@@ -74,8 +74,9 @@ static uint32_t joy_last_tick = 0;
 static MotorDir_t prev_motor_dir   = MOTOR_STOP;
 static uint16_t   prev_servo_us    = SERVO_CENTER_US;
 static uint16_t   servo_current_us = SERVO_CENTER_US;
-static uint8_t    prev_cross       = 0xFF;
-static uint8_t    loop_tick        = 0;   /* counts 10 ms ticks, resets at SLOW_TASK_TICKS */
+static uint8_t    prev_cross       = 0;
+static uint8_t    estop_active     = 0;   /* 1 = emergency stop, toggled by CROSS */
+static uint8_t    loop_tick        = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -183,22 +184,56 @@ int main(void)
         }
       }
 
-      /* Y axis → silniki (przód / tył / stop) */
+      /* CROSS → toggle emergency stop (rising edge only) */
+      uint8_t cross = UartCmd_GetCross();
+      if (cross == 1U && prev_cross == 0U)
+      {
+        estop_active = !estop_active;
+        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,
+                          estop_active ? GPIO_PIN_SET : GPIO_PIN_RESET);
+      }
+      prev_cross = cross;
+
+      /* R2 → przód, L2 → tył, proporcjonalnie; CROSS = e-stop */
+      float r2 = UartCmd_GetR2();
+      float l2 = UartCmd_GetL2();
+
       MotorDir_t motor_dir;
-      if (joy.y < -JOY_DEADZONE)
-        motor_dir = MOTOR_FORWARD;
-      else if (joy.y > JOY_DEADZONE)
-        motor_dir = MOTOR_BACKWARD;
+      uint16_t   motor_speed;
+
+      if (estop_active)
+      {
+        motor_dir   = MOTOR_STOP;
+        motor_speed = 0U;
+      }
+      else if (r2 > 0.05f)
+      {
+        motor_dir   = MOTOR_FORWARD;
+        motor_speed = (uint16_t)(r2 * (float)MOTOR_MAX_SPEED);
+      }
+      else if (l2 > 0.05f)
+      {
+        motor_dir   = MOTOR_BACKWARD;
+        motor_speed = (uint16_t)(l2 * (float)MOTOR_MAX_SPEED);
+      }
       else
-        motor_dir = MOTOR_STOP;
+      {
+        motor_dir   = MOTOR_STOP;
+        motor_speed = 0U;
+      }
 
       uint8_t lcd_row1_changed = 0;
 
       if (motor_dir != prev_motor_dir)
       {
-        Motor_SetAll(motor_dir, 700U);
+        Motor_SetAll(motor_dir, motor_speed);
         prev_motor_dir = motor_dir;
         lcd_row1_changed = 1;
+      }
+      else if (motor_dir != MOTOR_STOP)
+      {
+        /* Aktualizuj prędkość nawet gdy kierunek się nie zmienił */
+        Motor_SetAll(motor_dir, motor_speed);
       }
 
       if (servo_current_us != prev_servo_us)
@@ -217,7 +252,8 @@ int main(void)
       if (lcd_row1_changed)
       {
         float lsx_snap = UartCmd_GetLSX();
-        const char *m_str = (motor_dir == MOTOR_FORWARD)  ? "M:PRZOD " :
+        const char *m_str = estop_active                   ? "M:ESTOP " :
+                            (motor_dir == MOTOR_FORWARD)  ? "M:PRZOD " :
                             (motor_dir == MOTOR_BACKWARD) ? "M:TYL   " :
                                                             "M:STOP  ";
         const char *s_str = (lsx_snap < -0.2f) ? "S:LEWO  " :
@@ -227,17 +263,6 @@ int main(void)
         LCD_Print(m_str);
         LCD_SetCursor(1, 8);
         LCD_Print(s_str);
-      }
-
-      /* CROSS → dioda LD2 + LCD wiersz 0 */
-      uint8_t cross = UartCmd_GetCross();
-      if (cross != prev_cross)
-      {
-        HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin,
-                          (cross == 1U) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-        LCD_SetCursor(0, 0);
-        LCD_Print(cross ? "CROSS: ON       " : "CROSS: OFF      ");
-        prev_cross = cross;
       }
     }
 
