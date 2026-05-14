@@ -2,6 +2,8 @@
 """
 uart_sender.py - reads PS5 controller state and sends commands to STM32 via UART
 Command format: <CMD:VALUE>\n  e.g. "CROSS:1\n", "LSX:0.75\n"
+Buttons are edge-based: CROSS:1 on press, CROSS:0 on release.
+Axes/triggers are sent only when non-zero.
 Handles UART disconnection and controller disconnection gracefully.
 """
 
@@ -19,12 +21,20 @@ UART_PORT        = '/dev/ttyAMA0'
 UART_BAUDRATE    = 115200
 UART_RECONNECT   = 5.0  # seconds between UART reconnection attempts
 
-# How often to send state [seconds]
+# How often to poll controller state [seconds]
 SEND_INTERVAL = 0.05
 
+_BUTTONS = ('cross', 'circle', 'triangle', 'square',
+            'l1', 'r1', 'l3', 'r3', 'share', 'options', 'ps')
+_DPADS   = ('dpad_up', 'dpad_down', 'dpad_left', 'dpad_right')
 
-def format_commands(state):
-    """Convert controller state to list of UART command strings."""
+
+def format_commands(state, prev_state):
+    """
+    Convert controller state to list of UART command strings.
+    Axes/triggers: sent when non-zero.
+    Buttons/D-pad: edge-based – sent only when state changes (press=1, release=0).
+    """
     commands = []
 
     for stick, key in (("LSX", "left_stick_x"), ("LSY", "left_stick_y"),
@@ -36,14 +46,17 @@ def format_commands(state):
         if state[key] > 0.0:
             commands.append(f"{trigger}:{state[key]:.2f}")
 
-    for btn in ('cross', 'circle', 'triangle', 'square',
-                'l1', 'r1', 'l3', 'r3', 'share', 'options', 'ps'):
-        if state[btn]:
-            commands.append(f"{btn.upper()}:1")
+    for btn in _BUTTONS:
+        cur  = state[btn]
+        prev = prev_state.get(btn, False)
+        if cur != prev:
+            commands.append(f"{btn.upper()}:{'1' if cur else '0'}")
 
-    for dpad in ('dpad_up', 'dpad_down', 'dpad_left', 'dpad_right'):
-        if state[dpad]:
-            commands.append(f"{dpad.upper()}:1")
+    for dpad in _DPADS:
+        cur  = state[dpad]
+        prev = prev_state.get(dpad, False)
+        if cur != prev:
+            commands.append(f"{dpad.upper()}:{'1' if cur else '0'}")
 
     return commands
 
@@ -65,6 +78,7 @@ def main():
 
     ser = open_uart()
     last_uart_attempt = time.monotonic()
+    prev_state = {}  # empty → first press will always generate :1 edge
 
     print("Sending controller commands to STM32. Press Ctrl+C to exit.\n")
 
@@ -82,7 +96,7 @@ def main():
 
             # Only send if both controller and UART are connected
             if controller.connected and ser is not None:
-                commands = format_commands(controller.state)
+                commands = format_commands(controller.state, prev_state)
                 for cmd in commands:
                     try:
                         ser.write(f"{cmd}\n".encode())
@@ -93,6 +107,8 @@ def main():
                         last_uart_attempt = time.monotonic()
                         break
 
+            # Always track state so release events fire correctly after reconnect
+            prev_state = dict(controller.state)
             time.sleep(SEND_INTERVAL)
 
     except KeyboardInterrupt:
