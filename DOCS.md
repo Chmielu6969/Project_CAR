@@ -19,6 +19,29 @@
 
 ---
 
+## Lista komponentów
+
+| Komponent | Ilość |
+|---|---|
+| STM32 NUCLEO-F401RE (ARM Cortex M4) | 1x |
+| Raspberry Pi Zero 2W | 1x |
+| Silnik N20-BT03 micro 10:1 3000RPM - 12V | 4x |
+| TB6612FNG – dwukanałowy sterownik silników (Pololu 713) | 2x |
+| Digital Servo 21G Model S007M | 1x |
+| Karoseria Ferrari SF90 XX Stradale (hollow shell body) | 1x |
+| Koła 1,9-calowe (65 mm, opony 12 mm Hex) | 4x |
+| Sześciokątny adapter do kół (12mm/3mm – Pololu 2682) | 4x |
+| Czujnik HC-SR04 | 1x |
+| 8-kanałowy moduł czujnika śledzenia IR (detektor podczerwieni) | 2x |
+| Wyświetlacz 1.28 TFT (240x240, IC:GC9A01) | 2x |
+| Wyświetlacz 2.0 TFT SPI (GMT020-02-7P) | 1x |
+| Koszyk na akumulatory 3x18650 | 1x |
+| Wskaźnik poziomu baterii DC7-40V (Lipo/Acid) | 1x |
+| Złącze żeńskie typu C (Port ładowania 3A) | 1x |
+| RC Car Metal Magnet Body Shell | 4x |
+
+---
+
 ## Schemat podłączenia
 
 ### Digital Servo 21G Model S007M
