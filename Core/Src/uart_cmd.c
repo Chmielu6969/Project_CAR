@@ -9,8 +9,11 @@ static uint8_t rx_byte;
 static char    line_buf[LINE_BUF_SIZE];
 static uint8_t line_pos = 0;
 
-static volatile uint8_t cross_state = 0;
-static volatile float   lsx_value   = 0.0f;  /* left stick X: -1.0 … 1.0 */
+static volatile uint8_t  cross_state    = 0;
+static volatile float    lsx_value      = 0.0f;
+static volatile uint32_t lsx_last_tick  = 0;    /* timestamp of last LSX command */
+
+#define LSX_TIMEOUT_MS  300U  /* return 0.0 if no LSX received within this time */
 
 static void parse_line(void)
 {
@@ -27,7 +30,8 @@ static void parse_line(void)
     }
     else if (strcmp(cmd, "LSX") == 0)
     {
-        lsx_value = strtof(val, NULL);
+        lsx_value     = strtof(val, NULL);
+        lsx_last_tick = HAL_GetTick();
     }
 }
 
@@ -73,5 +77,7 @@ uint8_t UartCmd_GetCross(void)
 
 float UartCmd_GetLSX(void)
 {
+    if ((HAL_GetTick() - lsx_last_tick) > LSX_TIMEOUT_MS)
+        return 0.0f;
     return lsx_value;
 }

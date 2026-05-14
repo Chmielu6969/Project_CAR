@@ -35,10 +35,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SERVO_MAX_DEFLECT_US  450U   /* 45% of 1000 us half-range */
-#define SERVO_SMOOTH_DIV       12U   /* exponential smoothing: move 1/12 of remaining gap per 5 ms tick */
-#define SERVO_DEADBAND_US       3U   /* ignore differences smaller than this – prevents digital servo hunting */
-#define SLOW_TASK_TICKS        10U   /* run slow tasks every 10 × 5 ms = 50 ms */
+#define SERVO_MAX_DEFLECT_US  300U   /* 30% of 1000 us half-range */
+#define SERVO_STEER_THRESHOLD   0.3f /* joystick threshold to trigger max deflection */
+#define SLOW_TASK_TICKS         5U   /* run slow tasks every 5 × 10 ms = 50 ms */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -152,24 +151,16 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    /* === SERVO: co 10 ms – wysoka częstotliwość dla płynnego ruchu === */
+    /* === SERVO: binary – joystick past threshold → max deflection, else center === */
     {
       float lsx = UartCmd_GetLSX();
-      int32_t target_us = (int32_t)SERVO_CENTER_US + (int32_t)(lsx * (float)SERVO_MAX_DEFLECT_US);
-      if (target_us < (int32_t)(SERVO_CENTER_US - SERVO_MAX_DEFLECT_US))
-          target_us = (int32_t)(SERVO_CENTER_US - SERVO_MAX_DEFLECT_US);
-      if (target_us > (int32_t)(SERVO_CENTER_US + SERVO_MAX_DEFLECT_US))
-          target_us = (int32_t)(SERVO_CENTER_US + SERVO_MAX_DEFLECT_US);
-
-      /* Exponential smoothing z deadbandem – zapobiega buzzowaniu serwa cyfrowego */
-      int32_t diff = target_us - (int32_t)servo_current_us;
-      if (diff > (int32_t)SERVO_DEADBAND_US || diff < -(int32_t)SERVO_DEADBAND_US)
-      {
-          int32_t step = diff / (int32_t)SERVO_SMOOTH_DIV;
-          if (step == 0) step = (diff > 0) ? 1 : -1;
-          servo_current_us = (uint16_t)((int32_t)servo_current_us + step);
-          Servo_SetPulse(servo_current_us);
-      }
+      if (lsx > SERVO_STEER_THRESHOLD)
+          servo_current_us = SERVO_CENTER_US + SERVO_MAX_DEFLECT_US;
+      else if (lsx < -SERVO_STEER_THRESHOLD)
+          servo_current_us = SERVO_CENTER_US - SERVO_MAX_DEFLECT_US;
+      else
+          servo_current_us = SERVO_CENTER_US;
+      Servo_SetPulse(servo_current_us);
     }
 
     /* === WOLNE ZADANIA: joystick, silniki, LCD, CROSS – co 50 ms === */
@@ -250,7 +241,7 @@ int main(void)
       }
     }
 
-    HAL_Delay(5);
+    HAL_Delay(10);
   }
   /* USER CODE END 3 */
 }
