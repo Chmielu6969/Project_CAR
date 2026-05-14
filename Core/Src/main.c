@@ -156,9 +156,9 @@ int main(void)
     {
       float lsx = UartCmd_GetLSX();
       if (lsx > SERVO_STEER_THRESHOLD)
-          servo_current_us = SERVO_CENTER_US + SERVO_MAX_DEFLECT_US;
-      else if (lsx < -SERVO_STEER_THRESHOLD)
           servo_current_us = SERVO_CENTER_US - SERVO_MAX_DEFLECT_US;
+      else if (lsx < -SERVO_STEER_THRESHOLD)
+          servo_current_us = SERVO_CENTER_US + SERVO_MAX_DEFLECT_US;
       else
           servo_current_us = SERVO_CENTER_US;
       Servo_SetPulse(servo_current_us);
