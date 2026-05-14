@@ -4,7 +4,7 @@
 
 - Jakub Chmielewski 21432
 - Kacper Siemieniako 21560
-- Hot Dog 6767
+- Bartek Mikołajczyk 21513
 
 ## Cel projektu
 
