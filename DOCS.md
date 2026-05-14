@@ -90,19 +90,53 @@
 
 Piny zostaną przypisane przy implementacji Modułu 3 (omijanie przeszkód).
 
-### Czujniki IR (8-kanałowe moduły śledzenia linii)
+### Czujniki IR (2× moduł 8-kanałowy, łącznie 16 wejść GPIO)
 
-Piny zostaną przypisane przy implementacji modułu line follower. Projekt używa 2 modułów 8-kanałowych (łącznie 16 czujników).
+Moduł 1:
 
-### Wyświetlacze TFT (na tyle pojazdu)
+| Pin  | Kanał   |
+|------|---------|
+| PA0  | IR1_CH1 |
+| PA1  | IR1_CH2 |
+| PA7  | IR1_CH3 |
+| PA15 | IR1_CH4 |
+| PB2  | IR1_CH5 |
+| PB7  | IR1_CH6 |
+| PB10 | IR1_CH7 |
+| PB11 | IR1_CH8 |
 
-| Pozycja   | Model                | Interfejs | Funkcja                                          |
-|-----------|----------------------|-----------|--------------------------------------------------|
-| Lewy      | 1.28 TFT GC9A01      | SPI       | Tryb jazdy (Comfort / Comfort+ / Sport / Sport+) |
-| Prawy     | 1.28 TFT GC9A01      | SPI       | Prędkość (prędkościomierz z animacją)            |
-| Centralny | 2.0 TFT GMT020-02-7P | SPI       | Status połączenia PS5 (animacje / gify)          |
+Moduł 2:
 
-Piny SPI zostaną przypisane przy implementacji modułu wyświetlaczy.
+| Pin  | Kanał   | Uwaga                                              |
+|------|---------|-----------------------------------------------------|
+| PB12 | IR2_CH1 |                                                     |
+| PB14 | IR2_CH2 |                                                     |
+| PC12 | IR2_CH3 |                                                     |
+| PD2  | IR2_CH4 |                                                     |
+| PA11 | IR2_CH5 | USB_DM – brak złącza USB mikrokontrolera na Nucleo  |
+| PA12 | IR2_CH6 | USB_DP – j.w.                                       |
+| PC14 | IR2_CH7 | OSC32_IN – GPIO gdy LSE wyłączone w CubeMX          |
+| PC15 | IR2_CH8 | OSC32_OUT – j.w.                                    |
+
+Konfiguracja CubeMX: GPIO Input, Pull-up. Dla PA11/PA12: USB nie włączone. Dla PC14/PC15: RCC → LSE = Disable.
+
+### Wyświetlacze TFT (SPI2, na tyle pojazdu)
+
+Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
+
+| Pin  | Sygnał        | Opis                                      |
+|------|---------------|-------------------------------------------|
+| PB13 | SPI2_SCK      | Zegar SPI (AF5)                           |
+| PB15 | SPI2_MOSI     | Dane do wyświetlaczy (AF5)                |
+| PC0  | TFT_LEFT_CS   | Chip select – lewy GC9A01 (tryb jazdy)    |
+| PC1  | TFT_LEFT_DC   | Data/Command – lewy GC9A01               |
+| PC2  | TFT_RIGHT_CS  | Chip select – prawy GC9A01 (prędkość)    |
+| PC3  | TFT_RIGHT_DC  | Data/Command – prawy GC9A01              |
+| PC6  | TFT_CENTER_CS | Chip select – środkowy GMT020-02-7P (PS5) |
+| PC10 | TFT_CENTER_DC | Data/Command – środkowy GMT020-02-7P     |
+| PC11 | TFT_RST       | Reset wspólny (wszystkie 3)               |
+
+Konfiguracja CubeMX: SPI2 Transmit Only Master, Prescaler /4 (~21 MHz). PC0/PC1/PC2/PC3/PC6/PC10/PC11: GPIO Output push-pull.
 
 ---
 
