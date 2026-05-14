@@ -62,9 +62,20 @@ void Motor_Init(void)
     HAL_GPIO_WritePin(M1_STDBY_GPIO_Port, M1_STDBY_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(M2_STDBY_GPIO_Port, M2_STDBY_Pin, GPIO_PIN_SET);
 
-    /* Drive Bridge 2 STOP as pure COAST (all LOW), not BRAKE.
-       With BRIDGE2_INVERT=1 the old Motor_SetAll(STOP) set all direction
-       pins HIGH (BRAKE mode on TB6612). Explicit LOW here avoids that. */
+    /* DIAGNOSTIC: drive Bridge 2 at full speed for 2 s straight after boot.
+       Bypasses all inversion logic – if any motor on Bridge 2 spins here,
+       the chip and PWM are fine; problem is in the control path.
+       If nothing spins – check VM / VCC / GND on Bridge 2 TB6612,
+       or replace the chip. Remove this block once Bridge 2 is confirmed. */
+    HAL_GPIO_WritePin(M2_AIN1_GPIO_Port, M2_AIN1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(M2_AIN2_GPIO_Port, M2_AIN2_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(M2_BIN1_GPIO_Port, M2_BIN1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(M2_BIN2_GPIO_Port, M2_BIN2_Pin, GPIO_PIN_RESET);
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, MOTOR_MAX_SPEED);
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, MOTOR_MAX_SPEED);
+    HAL_Delay(2000);
+
+    /* Reset Bridge 2 to COAST before handing off to normal logic */
     HAL_GPIO_WritePin(M2_AIN1_GPIO_Port, M2_AIN1_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M2_AIN2_GPIO_Port, M2_AIN2_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M2_BIN1_GPIO_Port, M2_BIN1_Pin, GPIO_PIN_RESET);
