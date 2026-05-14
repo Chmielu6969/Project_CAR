@@ -153,6 +153,115 @@ Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
 
 ---
 
+### Konfiguracja STM32CubeMX – wyświetlacze TFT i czujniki IR
+
+```
+⚙️ Wymagana konfiguracja w STM32CubeMX (.ioc):
+
+══════════════════════════════════════════
+ 1. SPI2 – magistrala wyświetlaczy TFT
+══════════════════════════════════════════
+
+1. Przejdź do: Connectivity → SPI2.
+2. Mode: Transmit Only Master.
+3. Hardware NSS Signal: Disable.
+4. Parameter Settings:
+   - Prescaler: /4  (→ ~21 MHz przy APB1 84 MHz)
+   - CPOL: Low
+   - CPHA: 1 Edge
+   - First Bit: MSB First
+   - Data Size: 8 Bits
+5. W zakładce Pinout upewnij się, że:
+   - PB13 → SPI2_SCK  (AF5)
+   - PB15 → SPI2_MOSI (AF5)
+   (PB14 pozostaw nieprzypisane – MISO nieużywane)
+
+══════════════════════════════════════════
+ 2. GPIO Output – piny CS / DC / RST wyświetlaczy
+══════════════════════════════════════════
+
+Dla każdego z poniższych pinów:
+  PC0, PC1, PC2, PC3, PC6, PC10, PC11
+
+Kliknij pin w widoku Pinout → GPIO_Output, następnie
+w GPIO Settings ustaw:
+   - GPIO output level: High  (CS/RST domyślnie nieaktywne)
+   - GPIO mode: Output Push Pull
+   - GPIO Pull-up/Pull-down: No pull-up and no pull-down
+   - Maximum output speed: High
+
+Nadaj etykiety (User Label):
+   PC0  → TFT_LEFT_CS
+   PC1  → TFT_LEFT_DC
+   PC2  → TFT_RIGHT_CS
+   PC3  → TFT_RIGHT_DC
+   PC6  → TFT_CENTER_CS
+   PC10 → TFT_CENTER_DC
+   PC11 → TFT_RST
+
+══════════════════════════════════════════
+ 3. GPIO Input – czujniki IR (Moduł 1, 8 kanałów)
+══════════════════════════════════════════
+
+Dla pinów: PA0, PA1, PA7, PA15, PB2, PB7, PB10, PB11
+
+Kliknij pin w widoku Pinout → GPIO_Input, następnie
+w GPIO Settings ustaw:
+   - GPIO mode: Input mode
+   - GPIO Pull-up/Pull-down: Pull-up
+
+Nadaj etykiety:
+   PA0  → IR1_CH1
+   PA1  → IR1_CH2
+   PA7  → IR1_CH3
+   PA15 → IR1_CH4
+   PB2  → IR1_CH5
+   PB7  → IR1_CH6
+   PB10 → IR1_CH7
+   PB11 → IR1_CH8
+
+══════════════════════════════════════════
+ 4. GPIO Input – czujniki IR (Moduł 2, 8 kanałów)
+══════════════════════════════════════════
+
+KROK 4a – wyłącz LSE (zwolnij PC14/PC15):
+   Przejdź do: System Core → RCC
+   Low Speed Clock (LSE): Disable
+
+KROK 4b – upewnij się, że USB jest wyłączone:
+   Przejdź do: Connectivity → USB_OTG_FS
+   Mode: Disable
+   (zwalnia PA11 i PA12)
+
+KROK 4c – przypisz piny:
+Dla pinów: PB12, PB14, PC12, PD2, PA11, PA12, PC14, PC15
+
+Kliknij pin w widoku Pinout → GPIO_Input, następnie
+w GPIO Settings ustaw:
+   - GPIO mode: Input mode
+   - GPIO Pull-up/Pull-down: Pull-up
+
+Nadaj etykiety:
+   PB12 → IR2_CH1
+   PB14 → IR2_CH2
+   PC12 → IR2_CH3
+   PD2  → IR2_CH4
+   PA11 → IR2_CH5
+   PA12 → IR2_CH6
+   PC14 → IR2_CH7
+   PC15 → IR2_CH8
+
+══════════════════════════════════════════
+ 5. Generowanie kodu
+══════════════════════════════════════════
+
+Kliknij Project → Generate Code.
+Daj znać gdy gotowe – wtedy napiszę kod korzystający
+z tej konfiguracji.
+```
+
+---
+
 ## Platforma
 
 **STM32 Nucleo F401RE** – mikrokontroler STM32F401RE, rdzeń ARM Cortex-M4, zasilanie 3,3V / 5V przez złącza CN7/CN10.
