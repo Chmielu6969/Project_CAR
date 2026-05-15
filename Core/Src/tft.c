@@ -2,8 +2,9 @@
 
 extern SPI_HandleTypeDef hspi2;
 
-/* Jeden wiersz pikseli jako bufor do masowego wysyłania (240 × 2 B = 480 B) */
-static uint8_t line_buf[GC9A01_W * 2u];
+/* 10 wierszy pikseli (240 × 10 × 2 B = 4800 B) – mniej przerw SPI */
+#define LINE_BUF_ROWS 10u
+static uint8_t line_buf[GC9A01_W * 2u * LINE_BUF_ROWS];
 
 /* ─────────────────────────── CS / DC ─────────────────────────── */
 
@@ -193,8 +194,8 @@ void TFT_FillColor(TFT_Display_t disp, uint16_t color)
     uint16_t w = (disp == TFT_CENTER) ? GMT020_W : GC9A01_W;
     uint16_t h = (disp == TFT_CENTER) ? GMT020_H : GC9A01_H;
 
-    /* Wypełnij bufor jednym wierszem */
-    for (uint16_t i = 0u; i < w; i++) {
+    /* Wypełnij bufor LINE_BUF_ROWS wierszami */
+    for (uint32_t i = 0u; i < (uint32_t)w * LINE_BUF_ROWS; i++) {
         line_buf[i * 2u]      = (uint8_t)(color >> 8);
         line_buf[i * 2u + 1u] = (uint8_t)(color);
     }
@@ -203,8 +204,13 @@ void TFT_FillColor(TFT_Display_t disp, uint16_t color)
     cs_low(disp);
     set_window(disp, 0, 0, w - 1u, h - 1u);
     dc_data(disp);
-    for (uint16_t row = 0u; row < h; row++) {
-        HAL_SPI_Transmit(&hspi2, line_buf, w * 2u, HAL_MAX_DELAY);
+    uint16_t row = 0u;
+    while (row + LINE_BUF_ROWS <= h) {
+        HAL_SPI_Transmit(&hspi2, line_buf, w * 2u * LINE_BUF_ROWS, HAL_MAX_DELAY);
+        row += LINE_BUF_ROWS;
+    }
+    if (row < h) {
+        HAL_SPI_Transmit(&hspi2, line_buf, (h - row) * w * 2u, HAL_MAX_DELAY);
     }
     cs_high(disp);
 }
