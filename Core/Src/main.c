@@ -26,6 +26,7 @@
 #include "uart_cmd.h"
 #include "tft.h"
 #include "speedometer.h"
+#include "mode_display.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -116,8 +117,8 @@ int main(void)
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
   TFT_Init();
-  TFT_FillColor(TFT_LEFT,   TFT_RED);
   TFT_FillColor(TFT_CENTER, TFT_BLUE);
+  ModeDisplay_Init();
   Speedometer_Init();
 
   Servo_Init();

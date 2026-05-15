@@ -83,7 +83,14 @@ static void hw_reset(void)
 
 /* ─────────────────────────── GC9A01 ─────────────────────────── */
 
-static void gc9a01_init(TFT_Display_t d)
+/* madctl – wartość rejestru MADCTL (0x36): kontroluje obrót i kolejność kolorów.
+   Bit3=BGR (wymagany dla GC9A01), Bit4=ML, Bit5=MV, Bit6=MX, Bit7=MY.
+   Przykłady (z BGR=1, ML=1 jak oryginał):
+     0x18 – 0°  portrait
+     0x78 – 90° CW  (MX=1, MV=1)
+     0xD8 – 180°
+     0xB8 – 90° CCW / 270° (MY=1, MV=1) */
+static void gc9a01_init(TFT_Display_t d, uint8_t madctl)
 {
     /* Odblokowanie rejestrów wewnętrznych */
     write_cmd(d, 0xEF);
@@ -106,7 +113,7 @@ static void gc9a01_init(TFT_Display_t d)
     write_cmd1(d, 0x8F, 0xFF);
 
     { uint8_t b[] = {0x00, 0x00};                                           write_cmd_data(d, 0xB6, b, 2); }
-    write_cmd1(d, 0x36, 0x18); /* MADCTL: ML=1, BGR=1, portrait */
+    write_cmd1(d, 0x36, madctl);
     write_cmd1(d, 0x3A, 0x05); /* COLMOD: 16-bit RGB565 */
     { uint8_t b[] = {0x08, 0x08, 0x08, 0x08};                              write_cmd_data(d, 0x90, b, 4); }
     write_cmd1(d, 0xBD, 0x06);
@@ -249,7 +256,7 @@ void TFT_Init(void)
 
     hw_reset();
 
-    gc9a01_init(TFT_LEFT);
-    gc9a01_init(TFT_RIGHT);
+    gc9a01_init(TFT_LEFT,  0xB8u); /* 90° CCW – tryb jazdy, etykieta „S+" */
+    gc9a01_init(TFT_RIGHT, 0x78u); /* 90° CW  – prędkość GPS             */
     gmt020_init();
 }
