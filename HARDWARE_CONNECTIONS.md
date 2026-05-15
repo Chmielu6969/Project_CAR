@@ -40,7 +40,7 @@ Trzy wyświetlacze współdzielą SPI2 (SCK + MOSI). Wybór aktywnego wyświetla
 | Pin wyświetlacza | Pin Nucleo | Złącze       |
 |-----------------|------------|--------------|
 | CS              | PB12       | CN10 pin 29  |
-| DC (RS)         | PB14       | CN10 pin 28  |
+| DC (RS)         | PB14       | CN10 (morpho)|
 | SCL             | PB13       | —            |
 | SDA             | PB15       | —            |
 | RST             | PC11       | —            |
