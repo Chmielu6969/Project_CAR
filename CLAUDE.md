@@ -69,7 +69,7 @@ Budowa samochodu zdalnie sterowanego RC w karoserii Ferrari SF90 XX Stradale, st
 | PWMA       | PB4        | CN7    | TIM3 CH1 AF2    |
 | BIN1       | PB5        | CN7    | GPIO Output     |
 | BIN2       | PB8        | CN7    | GPIO Output     |
-| PWMB       | PB9        | CN7    | TIM4 CH4 AF2    |
+| PWMB       | PB9        | CN7    | TIM11 CH1 AF3   |
 
 ### Silniki N20 – Mostek 2 (TB6612FNG)
 
@@ -91,37 +91,53 @@ Budowa samochodu zdalnie sterowanego RC w karoserii Ferrari SF90 XX Stradale, st
 
 ### Czujnik HC-SR04
 
-> Piny zostaną przypisane przy implementacji modułu omijania przeszkód.
+> Wymagane: System Core → RCC → LSE: **Disable** (zwalnia PC14/PC15).
+
+| Pin czujnika | Pin Nucleo | Złącze       | Uwaga                          |
+|-------------|------------|--------------|--------------------------------|
+| VCC         | 5V         | CN10 U5V     | HC-SR04 wymaga 5V              |
+| GND         | GND        | CN10 GND     |                                |
+| TRIG        | PC14       | CN7 pin 25   | GPIO Output                    |
+| ECHO        | PC15       | CN7 pin 27   | **Dzielnik napięcia 1kΩ/2kΩ** |
+
+ECHO (5V) → dzielnik → PC15 (3.3V):
+```
+HC_ECHO (5V) ──[1 kΩ]──┬── PC15 (STM32)
+                        │
+                      [2 kΩ]
+                        │
+                       GND
+```
 
 ### Czujniki IR (2× moduł 8-kanałowy)
 
 Moduł 1:
 
-| Pin  | Kanał   |
-|------|---------|
-| PA0  | IR1_CH1 |
-| PA1  | IR1_CH2 |
-| PA7  | IR1_CH3 |
-| PA15 | IR1_CH4 |
-| PB2  | IR1_CH5 |
-| PB7  | IR1_CH6 |
-| PB10 | IR1_CH7 |
-| PB11 | IR1_CH8 |
+| Pin  | Kanał   | Złącze       |
+|------|---------|--------------|
+| PC0  | IR1_CH1 | CN8 A5       |
+| PC1  | IR1_CH2 | CN8 A4       |
+| PC2  | IR1_CH3 | CN7 pin 35   |
+| PC3  | IR1_CH4 | CN7 pin 37   |
+| PC6  | IR1_CH5 | CN10 pin 4   |
+| PC10 | IR1_CH6 | CN7 pin 1    |
+| PC12 | IR1_CH7 | CN7 pin 3    |
+| PD2  | IR1_CH8 | CN7 pin 4    |
 
 Moduł 2:
 
-| Pin  | Kanał   | Uwaga                                             |
-|------|---------|---------------------------------------------------|
-| PB12 | IR2_CH1 |                                                   |
-| PB14 | IR2_CH2 |                                                   |
-| PC12 | IR2_CH3 |                                                   |
-| PD2  | IR2_CH4 |                                                   |
-| PA11 | IR2_CH5 | USB_DM – brak złącza USB mikrokontrolera na Nucleo |
-| PA12 | IR2_CH6 | USB_DP – j.w.                                     |
-| PC14 | IR2_CH7 | OSC32_IN – GPIO gdy LSE wyłączone w CubeMX        |
-| PC15 | IR2_CH8 | OSC32_OUT – j.w.                                  |
+| Pin  | Kanał   | Złącze          | Uwaga                          |
+|------|---------|-----------------|--------------------------------|
+| PA0  | IR2_CH1 | CN8 A0          |                                |
+| PA1  | IR2_CH2 | CN8 A1          |                                |
+| PA2  | IR2_CH3 | CN8 A2          |                                |
+| PA3  | IR2_CH4 | CN8 A3 / CN9 D0 |                                |
+| PA6  | IR2_CH5 | CN9 D12         |                                |
+| PA7  | IR2_CH6 | CN9 D11         |                                |
+| PA11 | IR2_CH7 | CN10 pin 14     | USB_DM – USB nieużywane        |
+| PA12 | IR2_CH8 | CN10 pin 12     | USB_DP – USB nieużywane        |
 
-> Konfiguracja CubeMX: GPIO Input, Pull-up. Dla PA11/PA12: USB nie włączone. Dla PC14/PC15: RCC → LSE = Disable.
+> Konfiguracja CubeMX: GPIO Input, Pull-up. Dla PA11/PA12: USB_OTG_FS → Disable.
 
 ### Wyświetlacze TFT (SPI2, na tyle pojazdu)
 
@@ -131,15 +147,15 @@ Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
 |------|---------------|-------------------------------------------|
 | PB13 | SPI2_SCK      | Zegar SPI (AF5)                           |
 | PB15 | SPI2_MOSI     | Dane do wyświetlaczy (AF5)                |
-| PC0  | TFT_LEFT_CS   | Chip select – lewy GC9A01 (tryb jazdy)    |
-| PC1  | TFT_LEFT_DC   | Data/Command – lewy GC9A01               |
-| PC2  | TFT_RIGHT_CS  | Chip select – prawy GC9A01 (prędkość)    |
-| PC3  | TFT_RIGHT_DC  | Data/Command – prawy GC9A01              |
-| PC6  | TFT_CENTER_CS | Chip select – środkowy GMT020-02-7P (PS5) |
-| PC10 | TFT_CENTER_DC | Data/Command – środkowy GMT020-02-7P     |
+| PB12 | TFT_LEFT_CS   | Chip select – lewy GC9A01 (tryb jazdy)    |
+| PB11 | TFT_LEFT_DC   | Data/Command – lewy GC9A01               |
+| PB10 | TFT_RIGHT_CS  | Chip select – prawy GC9A01 (prędkość)    |
+| PB7  | TFT_RIGHT_DC  | Data/Command – prawy GC9A01              |
+| PB2  | TFT_CENTER_CS | Chip select – środkowy GMT020-02-7P (PS5) |
+| PA15 | TFT_CENTER_DC | Data/Command – środkowy GMT020-02-7P     |
 | PC11 | TFT_RST       | Reset wspólny (wszystkie 3)               |
 
-> Konfiguracja CubeMX: SPI2 Transmit Only Master, Prescaler /4 (~21 MHz). PC0/PC1/PC2/PC3/PC6/PC10/PC11: GPIO Output push-pull.
+> Konfiguracja CubeMX: SPI2 Transmit Only Master, Prescaler /4 (~21 MHz). PB2/PB7/PB10/PB11/PB12/PA15/PC11: GPIO Output push-pull.
 
 ### Podsumowanie zajętych timerów
 
@@ -149,7 +165,7 @@ Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
 | TIM3     | CH1   | PB4 | Mostek1 PWMA      |
 | TIM3     | CH2   | PC7 | Mostek2 PWMB      |
 | TIM4     | CH1   | PB6 | Servo S007M       |
-| TIM4     | CH4   | PB9 | Mostek1 PWMB      |
+| TIM11    | CH1   | PB9 | Mostek1 PWMB      |
 
 ---
 
@@ -181,7 +197,7 @@ Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
 ══════════════════════════════════════════
 
 Dla każdego z poniższych pinów:
-  PC0, PC1, PC2, PC3, PC6, PC10, PC11
+  PB2, PB7, PB10, PB11, PB12, PA15, PC11
 
 Kliknij pin w widoku Pinout → GPIO_Output, następnie
 w GPIO Settings ustaw:
@@ -191,19 +207,19 @@ w GPIO Settings ustaw:
    - Maximum output speed: High
 
 Nadaj etykiety (User Label):
-   PC0  → TFT_LEFT_CS
-   PC1  → TFT_LEFT_DC
-   PC2  → TFT_RIGHT_CS
-   PC3  → TFT_RIGHT_DC
-   PC6  → TFT_CENTER_CS
-   PC10 → TFT_CENTER_DC
+   PB12 → TFT_LEFT_CS
+   PB11 → TFT_LEFT_DC
+   PB10 → TFT_RIGHT_CS
+   PB7  → TFT_RIGHT_DC
+   PB2  → TFT_CENTER_CS
+   PA15 → TFT_CENTER_DC
    PC11 → TFT_RST
 
 ══════════════════════════════════════════
  3. GPIO Input – czujniki IR (Moduł 1, 8 kanałów)
 ══════════════════════════════════════════
 
-Dla pinów: PA0, PA1, PA7, PA15, PB2, PB7, PB10, PB11
+Dla pinów: PC0, PC1, PC2, PC3, PC6, PC10, PC12, PD2
 
 Kliknij pin w widoku Pinout → GPIO_Input, następnie
 w GPIO Settings ustaw:
@@ -211,30 +227,26 @@ w GPIO Settings ustaw:
    - GPIO Pull-up/Pull-down: Pull-up
 
 Nadaj etykiety:
-   PA0  → IR1_CH1
-   PA1  → IR1_CH2
-   PA7  → IR1_CH3
-   PA15 → IR1_CH4
-   PB2  → IR1_CH5
-   PB7  → IR1_CH6
-   PB10 → IR1_CH7
-   PB11 → IR1_CH8
+   PC0  → IR1_CH1
+   PC1  → IR1_CH2
+   PC2  → IR1_CH3
+   PC3  → IR1_CH4
+   PC6  → IR1_CH5
+   PC10 → IR1_CH6
+   PC12 → IR1_CH7
+   PD2  → IR1_CH8
 
 ══════════════════════════════════════════
  4. GPIO Input – czujniki IR (Moduł 2, 8 kanałów)
 ══════════════════════════════════════════
 
-KROK 4a – wyłącz LSE (zwolnij PC14/PC15):
-   Przejdź do: System Core → RCC
-   Low Speed Clock (LSE): Disable
-
-KROK 4b – upewnij się, że USB jest wyłączone:
+KROK 4a – wyłącz USB (zwolnij PA11/PA12):
    Przejdź do: Connectivity → USB_OTG_FS
    Mode: Disable
-   (zwalnia PA11 i PA12)
+   (zwalnia PA11 i PA12 na GPIO)
 
-KROK 4c – przypisz piny:
-Dla pinów: PB12, PB14, PC12, PD2, PA11, PA12, PC14, PC15
+KROK 4b – przypisz piny:
+Dla pinów: PA0, PA1, PA2, PA3, PA6, PA7, PA11, PA12
 
 Kliknij pin w widoku Pinout → GPIO_Input, następnie
 w GPIO Settings ustaw:
@@ -242,17 +254,42 @@ w GPIO Settings ustaw:
    - GPIO Pull-up/Pull-down: Pull-up
 
 Nadaj etykiety:
-   PB12 → IR2_CH1
-   PB14 → IR2_CH2
-   PC12 → IR2_CH3
-   PD2  → IR2_CH4
-   PA11 → IR2_CH5
-   PA12 → IR2_CH6
-   PC14 → IR2_CH7
-   PC15 → IR2_CH8
+   PA0  → IR2_CH1
+   PA1  → IR2_CH2
+   PA2  → IR2_CH3
+   PA3  → IR2_CH4
+   PA6  → IR2_CH5
+   PA7  → IR2_CH6
+   PA11 → IR2_CH7
+   PA12 → IR2_CH8
 
 ══════════════════════════════════════════
- 5. Generowanie kodu
+ 5. HC-SR04 – czujnik ultradźwiękowy
+══════════════════════════════════════════
+
+KROK 5a – wyłącz LSE (zwolnij PC14/PC15):
+   Przejdź do: System Core → RCC
+   Low Speed Clock (LSE): Disable
+
+KROK 5b – TRIG (PC14 → GPIO Output):
+   Kliknij PC14 → GPIO_Output
+   User Label: HC_TRIG
+   GPIO output level: Low, Push Pull, No pull
+
+KROK 5c – ECHO (PC15 → GPIO Input, przez dzielnik 1kΩ/2kΩ):
+   Kliknij PC15 → GPIO_Input
+   User Label: HC_ECHO
+   GPIO Pull-up/Pull-down: No pull-up and no pull-down
+
+   Podłącz ECHO czujnika (5V) przez dzielnik napięcia:
+   HC_ECHO (5V) ──[1 kΩ]──┬── PC15 (STM32)
+                           │
+                         [2 kΩ]
+                           │
+                          GND
+
+══════════════════════════════════════════
+ 6. Generowanie kodu
 ══════════════════════════════════════════
 
 Kliknij Project → Generate Code.
