@@ -148,14 +148,14 @@ Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
 | PB13 | SPI2_SCK      | Zegar SPI (AF5)                           |
 | PB15 | SPI2_MOSI     | Dane do wyświetlaczy (AF5)                |
 | PB12 | TFT_LEFT_CS   | Chip select – lewy GC9A01 (tryb jazdy)    |
-| PB11 | TFT_LEFT_DC   | Data/Command – lewy GC9A01               |
+| PB14 | TFT_LEFT_DC   | Data/Command – lewy GC9A01               |
 | PB10 | TFT_RIGHT_CS  | Chip select – prawy GC9A01 (prędkość)    |
 | PB7  | TFT_RIGHT_DC  | Data/Command – prawy GC9A01              |
 | PB2  | TFT_CENTER_CS | Chip select – środkowy GMT020-02-7P (PS5) |
 | PA15 | TFT_CENTER_DC | Data/Command – środkowy GMT020-02-7P     |
 | PC11 | TFT_RST       | Reset wspólny (wszystkie 3)               |
 
-> Konfiguracja CubeMX: SPI2 Transmit Only Master, Prescaler /4 (~21 MHz). PB2/PB7/PB10/PB11/PB12/PA15/PC11: GPIO Output push-pull.
+> Konfiguracja CubeMX: SPI2 Transmit Only Master, Prescaler /4 (~21 MHz). PB2/PB7/PB10/PB12/PB14/PA15/PC11: GPIO Output push-pull.
 
 ### Podsumowanie zajętych timerów
 
@@ -190,14 +190,14 @@ Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
 5. W zakładce Pinout upewnij się, że:
    - PB13 → SPI2_SCK  (AF5)
    - PB15 → SPI2_MOSI (AF5)
-   (PB14 pozostaw nieprzypisane – MISO nieużywane)
+   (PB14 → TFT_LEFT_DC – używany jako GPIO Output)
 
 ══════════════════════════════════════════
  2. GPIO Output – piny CS / DC / RST wyświetlaczy
 ══════════════════════════════════════════
 
 Dla każdego z poniższych pinów:
-  PB2, PB7, PB10, PB11, PB12, PA15, PC11
+  PB2, PB7, PB10, PB12, PB14, PA15, PC11
 
 Kliknij pin w widoku Pinout → GPIO_Output, następnie
 w GPIO Settings ustaw:
@@ -208,7 +208,7 @@ w GPIO Settings ustaw:
 
 Nadaj etykiety (User Label):
    PB12 → TFT_LEFT_CS
-   PB11 → TFT_LEFT_DC
+   PB14 → TFT_LEFT_DC
    PB10 → TFT_RIGHT_CS
    PB7  → TFT_RIGHT_DC
    PB2  → TFT_CENTER_CS

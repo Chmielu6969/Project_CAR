@@ -40,7 +40,7 @@ Trzy wyświetlacze współdzielą SPI2 (SCK + MOSI). Wybór aktywnego wyświetla
 | Pin wyświetlacza | Pin Nucleo | Złącze       |
 |-----------------|------------|--------------|
 | CS              | PB12       | CN10 pin 29  |
-| DC (RS)         | PB11       | CN10 (morpho)|
+| DC (RS)         | PB14       | CN10 pin 28  |
 | SCL             | PB13       | —            |
 | SDA             | PB15       | —            |
 | RST             | PC11       | —            |
@@ -87,7 +87,7 @@ Trzy wyświetlacze współdzielą SPI2 (SCK + MOSI). Wybór aktywnego wyświetla
 
 ### GPIO Output – CS / DC / RST
 
-Dla pinów: **PB2, PB7, PB10, PB11, PB12, PA15, PC11**
+Dla pinów: **PB2, PB7, PB10, PB12, PB14, PA15, PC11**
 
 - GPIO output level: High
 - GPIO mode: Output Push Pull
@@ -99,7 +99,7 @@ Etykiety (User Label):
 | Pin  | Etykieta      |
 |------|---------------|
 | PB12 | TFT_LEFT_CS   |
-| PB11 | TFT_LEFT_DC   |
+| PB14 | TFT_LEFT_DC   |
 | PB10 | TFT_RIGHT_CS  |
 | PB7  | TFT_RIGHT_DC  |
 | PB2  | TFT_CENTER_CS |
