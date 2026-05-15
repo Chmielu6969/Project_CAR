@@ -128,15 +128,15 @@ Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
 |------|---------------|-------------------------------------------|
 | PB13 | SPI2_SCK      | Zegar SPI (AF5)                           |
 | PB15 | SPI2_MOSI     | Dane do wyświetlaczy (AF5)                |
-| PC0  | TFT_LEFT_CS   | Chip select – lewy GC9A01 (tryb jazdy)    |
-| PC1  | TFT_LEFT_DC   | Data/Command – lewy GC9A01               |
-| PC2  | TFT_RIGHT_CS  | Chip select – prawy GC9A01 (prędkość)    |
-| PC3  | TFT_RIGHT_DC  | Data/Command – prawy GC9A01              |
-| PC6  | TFT_CENTER_CS | Chip select – środkowy GMT020-02-7P (PS5) |
-| PC10 | TFT_CENTER_DC | Data/Command – środkowy GMT020-02-7P     |
+| PB12 | TFT_LEFT_CS   | Chip select – lewy GC9A01 (tryb jazdy)    |
+| PB14 | TFT_LEFT_DC   | Data/Command – lewy GC9A01               |
+| PB10 | TFT_RIGHT_CS  | Chip select – prawy GC9A01 (prędkość)    |
+| PB7  | TFT_RIGHT_DC  | Data/Command – prawy GC9A01              |
+| PB2  | TFT_CENTER_CS | Chip select – środkowy GMT020-02-7P (PS5) |
+| PA15 | TFT_CENTER_DC | Data/Command – środkowy GMT020-02-7P     |
 | PC11 | TFT_RST       | Reset wspólny (wszystkie 3)               |
 
-Konfiguracja CubeMX: SPI2 Transmit Only Master, Prescaler /4 (~21 MHz). PC0/PC1/PC2/PC3/PC6/PC10/PC11: GPIO Output push-pull.
+Konfiguracja CubeMX: SPI2 Transmit Only Master, Prescaler /4 (~21 MHz). PB2/PB7/PB10/PB12/PB14/PA15/PC11: GPIO Output push-pull.
 
 ---
 

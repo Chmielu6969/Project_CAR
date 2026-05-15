@@ -21,11 +21,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "lcd.h"
 #include "servo.h"
 #include "motor.h"
-#include "joystick.h"
 #include "uart_cmd.h"
+#include "tft.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,7 +45,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-ADC_HandleTypeDef hadc1;
+SPI_HandleTypeDef hspi2;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
@@ -56,26 +55,10 @@ TIM_HandleTypeDef htim11;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-/* Joystick button: cycles through LCD messages */
-static const char *lcd_messages[] = {
-    "  Projekt CAR   ",
-    "    Test  1     ",
-    "   Silniki OK   "
-};
-#define LCD_MSG_COUNT  3U
-static uint8_t  msg_idx       = 0;
-static uint8_t  prev_msg_idx  = 0xFF;
-
-/* Debounce for joystick SW button */
-#define JOY_DEBOUNCE_MS  200U
-static uint32_t joy_last_tick = 0;
-
-/* Track previous state to redraw LCD only on change */
 static MotorDir_t prev_motor_dir   = MOTOR_STOP;
-static uint16_t   prev_servo_us    = SERVO_CENTER_US;
 static uint16_t   servo_current_us = SERVO_CENTER_US;
 static uint8_t    prev_cross       = 0;
-static uint8_t    estop_active     = 0;   /* 1 = emergency stop, toggled by CROSS */
+static uint8_t    estop_active     = 0;
 static uint8_t    loop_tick        = 0;
 /* USER CODE END PV */
 
@@ -83,13 +66,12 @@ static uint8_t    loop_tick        = 0;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM4_Init(void);
-static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_SPI2_Init(void);
 /* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -126,21 +108,19 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM4_Init();
-  MX_ADC1_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
   MX_USART1_UART_Init();
+  MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
-  LCD_Init();
-  LCD_SetCursor(0, 0);
-  LCD_Print(lcd_messages[0]);
-  LCD_SetCursor(1, 0);
-  LCD_Print("M:STOP  S:SRODEK");
+  TFT_Init();
+  TFT_FillColor(TFT_LEFT,   TFT_RED);
+  TFT_FillColor(TFT_CENTER, TFT_BLUE);
+  TFT_FillColor(TFT_RIGHT,  TFT_GREEN);
 
   Servo_Init();
   Motor_Init();
-  Joystick_Calibrate();
   UartCmd_Init(&huart1);
   /* USER CODE END 2 */
 
@@ -164,25 +144,11 @@ int main(void)
       Servo_SetPulse(servo_current_us);
     }
 
-    /* === WOLNE ZADANIA: joystick, silniki, LCD, CROSS – co 50 ms === */
+    /* === WOLNE ZADANIA: silniki, CROSS – co 50 ms === */
     loop_tick++;
     if (loop_tick >= SLOW_TASK_TICKS)
     {
       loop_tick = 0;
-
-      JoystickData_t joy;
-      Joystick_Read(&joy);
-
-      /* Joystick button: cycle LCD row 0 message (debounced) */
-      if (joy.btn_pressed)
-      {
-        uint32_t now = HAL_GetTick();
-        if ((now - joy_last_tick) >= JOY_DEBOUNCE_MS)
-        {
-          joy_last_tick = now;
-          msg_idx = (msg_idx + 1) % LCD_MSG_COUNT;
-        }
-      }
 
       /* CROSS → toggle emergency stop (rising edge only) */
       uint8_t cross = UartCmd_GetCross();
@@ -222,47 +188,14 @@ int main(void)
         motor_speed = 0U;
       }
 
-      uint8_t lcd_row1_changed = 0;
-
       if (motor_dir != prev_motor_dir)
       {
         Motor_SetAll(motor_dir, motor_speed);
         prev_motor_dir = motor_dir;
-        lcd_row1_changed = 1;
       }
       else if (motor_dir != MOTOR_STOP)
       {
-        /* Aktualizuj prędkość nawet gdy kierunek się nie zmienił */
         Motor_SetAll(motor_dir, motor_speed);
-      }
-
-      if (servo_current_us != prev_servo_us)
-      {
-        prev_servo_us = servo_current_us;
-        lcd_row1_changed = 1;
-      }
-
-      if (msg_idx != prev_msg_idx)
-      {
-        LCD_SetCursor(0, 0);
-        LCD_Print(lcd_messages[msg_idx]);
-        prev_msg_idx = msg_idx;
-      }
-
-      if (lcd_row1_changed)
-      {
-        float lsx_snap = UartCmd_GetLSX();
-        const char *m_str = estop_active                   ? "M:ESTOP " :
-                            (motor_dir == MOTOR_FORWARD)  ? "M:PRZOD " :
-                            (motor_dir == MOTOR_BACKWARD) ? "M:TYL   " :
-                                                            "M:STOP  ";
-        const char *s_str = (lsx_snap < -0.2f) ? "S:LEWO  " :
-                            (lsx_snap >  0.2f) ? "S:PRAWO " :
-                                                  "S:SRODEK";
-        LCD_SetCursor(1, 0);
-        LCD_Print(m_str);
-        LCD_SetCursor(1, 8);
-        LCD_Print(s_str);
       }
     }
 
@@ -313,63 +246,39 @@ void SystemClock_Config(void)
 }
 
 /**
-  * @brief ADC1 Initialization Function
+  * @brief SPI2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_ADC1_Init(void)
+static void MX_SPI2_Init(void)
 {
 
-  /* USER CODE BEGIN ADC1_Init 0 */
+  /* USER CODE BEGIN SPI2_Init 0 */
 
-  /* USER CODE END ADC1_Init 0 */
+  /* USER CODE END SPI2_Init 0 */
 
-  ADC_ChannelConfTypeDef sConfig = {0};
+  /* USER CODE BEGIN SPI2_Init 1 */
 
-  /* USER CODE BEGIN ADC1_Init 1 */
-
-  /* USER CODE END ADC1_Init 1 */
-
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ENABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 2;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  /* USER CODE END SPI2_Init 1 */
+  /* SPI2 parameter configuration*/
+  hspi2.Instance = SPI2;
+  hspi2.Init.Mode = SPI_MODE_MASTER;
+  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.NSS = SPI_NSS_SOFT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi2.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
   {
     Error_Handler();
   }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_0;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_1;
-  sConfig.Rank = 2;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC1_Init 2 */
-
-  /* USER CODE END ADC1_Init 2 */
+  /* USER CODE BEGIN SPI2_Init 2 */
+  /* USER CODE END SPI2_Init 2 */
 
 }
 
@@ -664,16 +573,24 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, LCD_D4_Pin|LCD_D5_Pin|LCD_D6_Pin|LCD_D7_Pin
-                          |M2_BIN1_Pin|M2_BIN2_Pin|M2_STDBY_Pin|M2_AIN1_Pin
-                          |LCD_RS_Pin|LCD_E_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, M2_AIN2_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, M2_AIN2_Pin|LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, M2_BIN1_Pin|M2_BIN2_Pin|M2_STDBY_Pin|M2_AIN1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, M1_STDBY_Pin|M1_AIN1_Pin|M1_AIN2_Pin|M1_BIN1_Pin
                           |M1_BIN2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, TFT_CENTER_CS_Pin|TFT_RIGHT_CS_Pin|TFT_LEFT_CS_Pin|TFT_LEFT_DC_Pin
+                          |TFT_RIGHT_DC_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(TFT_CENTER_DC_GPIO_Port, TFT_CENTER_DC_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(TFT_RST_GPIO_Port, TFT_RST_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : BTN_USER_Pin */
   GPIO_InitStruct.Pin = BTN_USER_Pin;
@@ -681,29 +598,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(BTN_USER_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LCD_D4_Pin LCD_D5_Pin LCD_D6_Pin LCD_D7_Pin
-                           M2_BIN1_Pin M2_BIN2_Pin M2_STDBY_Pin M2_AIN1_Pin
-                           LCD_RS_Pin LCD_E_Pin */
-  GPIO_InitStruct.Pin = LCD_D4_Pin|LCD_D5_Pin|LCD_D6_Pin|LCD_D7_Pin
-                          |M2_BIN1_Pin|M2_BIN2_Pin|M2_STDBY_Pin|M2_AIN1_Pin
-                          |LCD_RS_Pin|LCD_E_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : JOY_SW_Pin */
-  GPIO_InitStruct.Pin = JOY_SW_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(JOY_SW_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pins : M2_AIN2_Pin LD2_Pin */
   GPIO_InitStruct.Pin = M2_AIN2_Pin|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : M2_BIN1_Pin M2_BIN2_Pin M2_STDBY_Pin M2_AIN1_Pin */
+  GPIO_InitStruct.Pin = M2_BIN1_Pin|M2_BIN2_Pin|M2_STDBY_Pin|M2_AIN1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : M1_STDBY_Pin M1_AIN1_Pin M1_AIN2_Pin M1_BIN1_Pin
                            M1_BIN2_Pin */
@@ -714,10 +621,32 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : TFT_CENTER_CS_Pin TFT_RIGHT_CS_Pin TFT_LEFT_CS_Pin TFT_LEFT_DC_Pin
+                           TFT_RIGHT_DC_Pin */
+  GPIO_InitStruct.Pin = TFT_CENTER_CS_Pin|TFT_RIGHT_CS_Pin|TFT_LEFT_CS_Pin|TFT_LEFT_DC_Pin
+                          |TFT_RIGHT_DC_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : TFT_CENTER_DC_Pin */
+  GPIO_InitStruct.Pin = TFT_CENTER_DC_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(TFT_CENTER_DC_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : TFT_RST_Pin */
+  GPIO_InitStruct.Pin = TFT_RST_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(TFT_RST_GPIO_Port, &GPIO_InitStruct);
+
 }
 
 /* USER CODE BEGIN 4 */
-
 /* USER CODE END 4 */
 
 /**
