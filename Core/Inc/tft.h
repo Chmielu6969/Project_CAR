@@ -28,5 +28,7 @@ typedef enum {
 
 void TFT_Init(void);
 void TFT_FillColor(TFT_Display_t disp, uint16_t color);
+void TFT_FillRect(TFT_Display_t disp, uint16_t x0, uint16_t y0,
+                  uint16_t x1, uint16_t y1, uint16_t color);
 
 #endif /* TFT_H */

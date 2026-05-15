@@ -25,6 +25,7 @@
 #include "motor.h"
 #include "uart_cmd.h"
 #include "tft.h"
+#include "speedometer.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -117,7 +118,7 @@ int main(void)
   TFT_Init();
   TFT_FillColor(TFT_LEFT,   TFT_RED);
   TFT_FillColor(TFT_CENTER, TFT_BLUE);
-  TFT_FillColor(TFT_RIGHT,  TFT_GREEN);
+  Speedometer_Init();
 
   Servo_Init();
   Motor_Init();
@@ -196,6 +197,12 @@ int main(void)
       else if (motor_dir != MOTOR_STOP)
       {
         Motor_SetAll(motor_dir, motor_speed);
+      }
+
+      /* Aktualizacja prędkości na wyświetlaczu prawym (z GPS) */
+      {
+        float spd_f = UartCmd_GetSpeed();
+        Speedometer_Update((uint16_t)(spd_f + 0.5f));
       }
     }
 

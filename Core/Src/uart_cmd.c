@@ -16,8 +16,11 @@ static volatile float    r2_value       = 0.0f;
 static volatile uint32_t r2_last_tick   = 0;
 static volatile float    l2_value       = 0.0f;
 static volatile uint32_t l2_last_tick   = 0;
+static volatile float    speed_value    = 0.0f;
+static volatile uint32_t speed_last_tick = 0;
 
-#define TRIGGER_TIMEOUT_MS  300U  /* return 0.0 if no command received within this time */
+#define TRIGGER_TIMEOUT_MS  300U   /* return 0.0 if no command received within this time */
+#define SPEED_TIMEOUT_MS   2000U   /* GPS sends at 1 Hz – allow 2 s before considering stale */
 
 static void parse_line(void)
 {
@@ -46,6 +49,11 @@ static void parse_line(void)
     {
         l2_value     = strtof(val, NULL);
         l2_last_tick = HAL_GetTick();
+    }
+    else if (strcmp(cmd, "SPEED") == 0)
+    {
+        speed_value     = strtof(val, NULL);
+        speed_last_tick = HAL_GetTick();
     }
 }
 
@@ -108,4 +116,11 @@ float UartCmd_GetL2(void)
     if ((HAL_GetTick() - l2_last_tick) > TRIGGER_TIMEOUT_MS)
         return 0.0f;
     return l2_value;
+}
+
+float UartCmd_GetSpeed(void)
+{
+    if ((HAL_GetTick() - speed_last_tick) > SPEED_TIMEOUT_MS)
+        return 0.0f;
+    return speed_value;
 }

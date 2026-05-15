@@ -18,4 +18,7 @@ float UartCmd_GetR2(void);
 /* Returns L2 trigger value: 0.0 (released) … 1.0 (fully pressed) */
 float UartCmd_GetL2(void);
 
+/* Returns GPS speed in km/h. Returns 0.0 if no valid data received within 2 s. */
+float UartCmd_GetSpeed(void);
+
 #endif /* UART_CMD_H */

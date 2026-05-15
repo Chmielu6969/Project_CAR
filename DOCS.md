@@ -39,6 +39,7 @@
 | Wskaźnik poziomu baterii DC7-40V (Lipo/Acid) | 1x |
 | Złącze żeńskie typu C (Port ładowania 3A) | 1x |
 | RC Car Metal Magnet Body Shell | 4x |
+| Moduł GPS GY-GPS6MV2 (NEO-6M, UART 9600 baud) | 1x |
 
 ---
 
@@ -120,6 +121,23 @@ Moduł 2:
 
 Konfiguracja CubeMX: GPIO Input, Pull-up. Dla PA11/PA12: USB nie włączone. Dla PC14/PC15: RCC → LSE = Disable.
 
+### Moduł GPS GY-GPS6MV2 (NEO-6M) → Raspberry Pi Zero 2W
+
+Moduł GPS podłączony jest do Raspberry Pi Zero 2W przez osobny port UART
+(inny niż port komunikacji ze STM32). Raspberry odczytuje zdania NMEA ($GPRMC / $GPVTG)
+i przesyła prędkość do STM32 komendą `SPEED:<km/h>\n`.
+
+| Pin GPS       | Raspberry Pi Zero 2W          | Opis                        |
+|---------------|-------------------------------|-----------------------------|
+| VCC           | 3.3 V (pin 1)                 | Zasilanie                   |
+| GND           | GND (pin 6)                   | Masa                        |
+| TX (GPS→RPi)  | RX – port zależny od dtoverlay | Odbiór NMEA, 9600 baud     |
+| RX (GPS←RPi)  | TX – port zależny od dtoverlay | Opcjonalnie (konfiguracja) |
+
+> Port GPS na Raspberry Pi ustawiany przez `dtoverlay` lub adapter USB-UART
+> (domyślny `GPS_PORT` w skrypcie: `/dev/ttyUSB0`).
+> Skrypt odczytu: `Raspberry/gps/gps_reader.py`.
+
 ### Wyświetlacze TFT (SPI2, na tyle pojazdu)
 
 Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
@@ -163,10 +181,16 @@ Project_CAR/
 │   ├── Inc/
 │   │   ├── motor.h          # Sterownik silników N20 (TB6612FNG)
 │   │   ├── servo.h          # Sterownik serwomechanizmu Digital Servo 21G S007M
+│   │   ├── tft.h            # Sterownik wyświetlaczy TFT (SPI2) – GC9A01, GMT020
+│   │   ├── speedometer.h    # Licznik prędkości na TFT_RIGHT (GC9A01)
+│   │   ├── uart_cmd.h       # Parser komend UART (LSX, R2, L2, CROSS, SPEED…)
 │   │   └── main.h           # Definicje pinów GPIO (generowane przez CubeMX)
 │   └── Src/
 │       ├── motor.c          # Sterowanie dwoma mostkami TB6612FNG
 │       ├── servo.c          # Sterowanie PWM przez TIM4 CH1
+│       ├── tft.c            # Inicjalizacja GC9A01 / GMT020, FillColor, FillRect
+│       ├── speedometer.c    # Wyświetlanie prędkości (7-segmentowe cyfry + „KM/H")
+│       ├── uart_cmd.c       # Odbiór UART przez przerwanie, parsowanie linii
 │       └── main.c           # Inicjalizacja peryferiów, główna pętla sterowania
 ├── Raspberry/               # Skrypty Python – most PS5 Bluetooth → STM32 UART
 │   ├── ps5/
@@ -174,6 +198,8 @@ Project_CAR/
 │   │   └── ps5_test.py
 │   ├── uart/
 │   │   └── uart_sender.py
+│   ├── gps/
+│   │   └── gps_reader.py    # Odczyt GY-GPS6MV2, wysyłanie SPEED: do STM32
 │   └── README.md
 ├── Drivers/                 # STM32 HAL + CMSIS (generowane przez CubeMX)
 ├── Project_CAR.ioc          # Konfiguracja STM32CubeMX
@@ -204,6 +230,27 @@ Wszelkie zmiany pinów, timerów i innych peryferiów należy wykonywać wyłąc
 ### `motor.c` – sterownik silników
 
 Obsługuje dwa mostki TB6612FNG sterujące czterema silnikami N20. Eksponuje funkcję `Motor_SetAll(dir, speed)` przyjmującą kierunek (`MOTOR_FORWARD`, `MOTOR_BACKWARD`, `MOTOR_STOP`) i wartość wypełnienia PWM (0–1000). Oba mostki są inicjalizowane z aktywnym STDBY.
+
+### `tft.c` – sterownik wyświetlaczy TFT
+
+Obsługuje trzy wyświetlacze na magistrali SPI2. Eksponuje:
+- `TFT_Init()` – inicjalizuje GC9A01 (lewy, prawy) i GMT020-02-7P (środkowy).
+- `TFT_FillColor(disp, color)` – wypełnia cały wyświetlacz kolorem RGB565.
+- `TFT_FillRect(disp, x0, y0, x1, y1, color)` – wypełnia prostokąt kolorem (używane przez speedometer).
+
+### `speedometer.c` – licznik prędkości
+
+Wyświetla prędkość GPS na prawym wyświetlaczu GC9A01 (240×240) jako duże cyfry
+7-segmentowe (kolor czerwony) z etykietą „KM/H" (kolor biały, poniżej cyfr).
+- `Speedometer_Init()` – czyści ekran i rysuje etykietę jednorazowo.
+- `Speedometer_Update(speed_kmh)` – przerysowuje obszar cyfr tylko gdy wartość się zmieni.
+Prędkość pochodzi z komendy `SPEED:<wartość>` odbieranej przez UART z Raspberry Pi.
+
+### `uart_cmd.c` – parser komend UART
+
+Odbiera bajty przez przerwanie USART1, składa linie formatu `KOMENDA:WARTOŚĆ\n`
+i parsuje je. Obsługiwane komendy: `LSX`, `LSY`, `RSX`, `RSY`, `L2`, `R2`,
+`CROSS` oraz `SPEED` (prędkość GPS w km/h, timeout 2 s).
 
 ### `servo.c` – sterownik serwa
 

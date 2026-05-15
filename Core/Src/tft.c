@@ -215,6 +215,29 @@ void TFT_FillColor(TFT_Display_t disp, uint16_t color)
     cs_high(disp);
 }
 
+/* ─────────────────────────── Prostokąt ─────────────────────────── */
+
+void TFT_FillRect(TFT_Display_t disp, uint16_t x0, uint16_t y0,
+                  uint16_t x1, uint16_t y1, uint16_t color)
+{
+    uint16_t w = x1 - x0 + 1u;
+    uint16_t h = y1 - y0 + 1u;
+
+    /* Wypełnij bufor jednym wierszem pikseli */
+    for (uint16_t i = 0u; i < w; i++) {
+        line_buf[i * 2u]      = (uint8_t)(color >> 8);
+        line_buf[i * 2u + 1u] = (uint8_t)(color);
+    }
+
+    cs_low(disp);
+    set_window(disp, x0, y0, x1, y1);
+    dc_data(disp);
+    for (uint16_t row = 0u; row < h; row++) {
+        HAL_SPI_Transmit(&hspi2, line_buf, w * 2u, HAL_MAX_DELAY);
+    }
+    cs_high(disp);
+}
+
 /* ─────────────────────────── Inicjalizacja wszystkich ─────────────────────────── */
 
 void TFT_Init(void)
