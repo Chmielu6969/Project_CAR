@@ -26,12 +26,10 @@ enable_uart=1
 dtoverlay=miniuart-bt
 ```
 
-> Nie dodawaj `dtoverlay=uart3` – nie istnieje na Zero 2W (tylko RPi 4/5).
-
 ### Wirtualne środowisko Python
 
 ```bash
-cd ~/Desktop/Project_CAR/Raspberry
+cd ./Project_CAR/Raspberry
 python3 -m venv venv
 venv/bin/pip install pygame pyserial pynmea2 pigpio
 ```

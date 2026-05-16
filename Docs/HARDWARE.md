@@ -109,15 +109,6 @@ Taktowanie zegara: **16 MHz HSI**.
 | TRIG         | PC14       | CN7 pin 25   | GPIO Output                    |
 | ECHO         | PC15       | CN7 pin 27   | GPIO Input + dzielnik 1kΩ/2kΩ |
 
-Sygnał ECHO (5V) przez dzielnik napięcia → PC15 (3.3V):
-
-```
-HC_ECHO (5V) ──[1 kΩ]──┬── PC15 (STM32)
-                        │
-                      [2 kΩ]
-                        │
-                       GND
-```
 
 ### Konfiguracja CubeMX (wymagana – jeszcze nie skonfigurowane w .ioc)
 
@@ -141,7 +132,7 @@ HC_ECHO (5V) ──[1 kΩ]──┬── PC15 (STM32)
 
 ### Fizyczne połączenie
 
-Zasilanie: **5V** (bezpośrednio, bez dzielnika napięcia).
+Zasilanie: **5V**
 
 | Pin Nucleo | Kanał   | Złącze     |
 |------------|---------|------------|
@@ -169,7 +160,7 @@ Trzy wyświetlacze na wspólnej magistrali SPI2, różnicowane osobnymi pinami C
 
 - **Lewy** – GC9A01 1.28" 240×240 (tryb jazdy)
 - **Prawy** – GC9A01 1.28" 240×240 (prędkościomierz)
-- **Środkowy** – GMT020-02-7P 2.0" (status PS5)
+- **Środkowy** – GMT020-02-7P 2.0" (status kontrolera PS5 i Raspberry)
 
 ### Fizyczne połączenie
 
