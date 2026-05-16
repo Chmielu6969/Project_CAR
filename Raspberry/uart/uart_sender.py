@@ -106,7 +106,7 @@ def main():
             # Only send if both controller and UART are connected
             if controller.connected and ser is not None:
                 commands = format_commands(controller.state, prev_state)
-                commands.append(f"GPS_SPEED_MS:{gps.get_speed_ms():.2f}")
+                commands.append(f"SPEED:{gps.get_speed_ms():.2f}")
                 for cmd in commands:
                     try:
                         ser.write(f"{cmd}\n".encode())
