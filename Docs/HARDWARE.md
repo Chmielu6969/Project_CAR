@@ -1,7 +1,36 @@
 # HARDWARE – Połączenia i konfiguracja STM32CubeMX
 
-Źródło prawdy dla pinów i parametrów timerów: `Project_CAR.ioc`.  
-Taktowanie zegara: **16 MHz HSI**.
+Źródło prawdy dla pinów i parametrów timerów: `Project_CAR.ioc`.
+
+---
+
+## Platforma
+
+### STM32 NUCLEO-F401RE
+
+| Parametr | Wartość |
+|---|---|
+| Mikrokontroler | STM32F401RET6 |
+| Rdzeń | ARM Cortex-M4, FPU |
+| Taktowanie | 16 MHz HSI (bez PLL) |
+| Pamięć Flash | 512 KB |
+| Pamięć RAM | 96 KB |
+| Zasilanie | 3,3V (logika) / 5V (CN7/CN10 U5V) |
+| Złącza rozszerzeń | CN7 (Morpho lewy), CN10 (Morpho prawy), CN5/CN6 (Arduino) |
+| Interfejs debugowania | ST-LINK/V2-1 (wbudowany, USB) |
+
+### Raspberry Pi Zero 2W
+
+| Parametr | Wartość |
+|---|---|
+| SoC | Broadcom BCM2710A1 (BCM2837) |
+| Rdzeń | ARM Cortex-A53 quad-core 64-bit, 1 GHz |
+| Pamięć RAM | 512 MB LPDDR2 |
+| Bluetooth | 2.4 GHz BT 4.2 / BLE (wbudowany) |
+| Wi-Fi | 802.11 b/g/n 2.4 GHz (wbudowany) |
+| Zasilanie | 5V przez micro USB |
+| GPIO | 40-pinowy header (3,3V logika) |
+| UART sprzętowe | 2x (`/dev/ttyAMA0` i `/dev/ttyS0`) – oba zajęte |
 
 ---
 
