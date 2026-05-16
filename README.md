@@ -1,19 +1,17 @@
 # RC_CAR Ferrari SF90 XX Stradale
 
-Zdalnie sterowany samochód RC w karoserii Ferrari SF90 XX Stradale, zbudowany na płytce **STM32 Nucleo F401RE** (ARM Cortex-M4). Sterowanie odbywa się przez kontroler PlayStation 5 via Bluetooth (Raspberry Pi Zero 2W jako most UART). Pojazd obsługuje autonomiczną jazdę po linii (czujniki IR) oraz omijanie przeszkód (HC-SR04).
-
-**Autorzy:** Jakub Chmielewski 21432 · Kacper Siemieniako 21560 · Hot Dog 6767
+Zdalnie sterowany samochód RC w karoserii Ferrari SF90 XX Stradale, zbudowany na płytce **STM32 Nucleo F401RE** (ARM Cortex-M4). Sterowanie odbywa się przez kontroler PlayStation 5 via Bluetooth (Raspberry Pi Zero 2W jako most UART). Pojazd obsługuje autonomiczną jazdę po linii (czujnik IR) oraz omijanie przeszkód (HC-SR04).
 
 ---
 
 ## Funkcje
 
 - Sterowanie przez pad PS5 (Bluetooth via Raspberry Pi Zero 2W)
-- Jazda po linii – 8-kanałowy czujnik IR (2 moduły, 16 czujników łącznie)
+- Jazda po linii – 8-kanałowy czujnik IR
 - Omijanie przeszkód – czujnik ultradźwiękowy HC-SR04
 - Sterowanie serwomechanizmem Digital Servo 21G S007M (skręt kół przednich)
 - Wyświetlacz trybu jazdy – lewy okrągły TFT 1.28" GC9A01
-- Wyświetlacz prędkości – prawy okrągły TFT 1.28" GC9A01 (animacja prędkościomierza)
+- Wyświetlacz prędkości – prawy okrągły TFT 1.28" GC9A01
 - Wyświetlacz stanu PS5 – centralny prostokątny TFT 2.0" GMT020-02-7P
 
 ---
@@ -31,13 +29,13 @@ Zdalnie sterowany samochód RC w karoserii Ferrari SF90 XX Stradale, zbudowany n
 | Koła 1,9-calowe (65 mm, opony 12 mm Hex) | 4x |
 | Sześciokątny adapter do kół (12mm/3mm – Pololu 2682) | 4x |
 | Czujnik HC-SR04 | 1x |
-| 8-kanałowy moduł czujnika śledzenia IR (detektor podczerwieni) | 2x |
+| 8-kanałowy moduł czujnika śledzenia IR | 1x |
 | Wyświetlacz 1.28 TFT (240x240, IC:GC9A01) | 2x |
 | Wyświetlacz 2.0 TFT SPI (GMT020-02-7P) | 1x |
+| Moduł GPS GY-GPS6MV2 (u-blox NEO-6M) | 1x |
 | Koszyk na akumulatory 3x18650 | 1x |
-| Wskaźnik poziomu baterii DC7-40V (Lipo/Acid) | 1x |
-| Złącze żeńskie typu C (Port ładowania 3A) | 1x |
-| RC Car Metal Magnet Body Shell | 4x |
+| Wskaźnik poziomu baterii DC7-40V | 1x |
+| Złącze żeńskie USB-C (Port ładowania 3A) | 1x |
 
 ---
 
@@ -49,11 +47,6 @@ Zdalnie sterowany samochód RC w karoserii Ferrari SF90 XX Stradale, zbudowany n
 | 2     | Jazda zaprogramowaną sekwencją 10 kroków    | Oczekuje   |
 | 3     | Jazda po linii (line follower, czujnik IR)  | Oczekuje   |
 | 4     | Sterowanie przez pad PS5 (Bluetooth)        | Oczekuje   |
-
-**Aktualnie zaimplementowane:**
-- Sterownik silników N20 przez dwa mostki TB6612FNG (`motor.c / motor.h`)
-- Sterownik serwa Digital Servo 21G S007M przez PWM (`servo.c / servo.h`)
-- Most PS5 → STM32 przez Raspberry Pi Zero 2W + UART (`Raspberry/`)
 
 ---
 
@@ -67,8 +60,14 @@ Zdalnie sterowany samochód RC w karoserii Ferrari SF90 XX Stradale, zbudowany n
 3. Zbuduj projekt: **Project → Build All** (`Ctrl+B`).
 4. Podłącz Nucleo przez USB i wgraj firmware: **Run → Run** (`F11`).
 
-Szczegółowe informacje o podłączeniu, timerach i strukturze plików znajdziesz w [dokumentacji technicznej](DOCS.md).
-Konfiguracja Raspberry Pi i instrukcja parowania PS5 – w [Raspberry/README.md](Raspberry/README.md).
+---
+
+## Dokumentacja techniczna
+
+| Plik | Zawartość |
+|------|-----------|
+| [Docs/HARDWARE.md](Docs/HARDWARE.md) | Schematy podłączeń i instrukcje konfiguracji STM32CubeMX per urządzenie |
+| [Docs/RASPBERRY_CONFIG.md](Docs/RASPBERRY_CONFIG.md) | Konfiguracja Raspberry Pi: most BT/UART, PS5, GPS |
 
 ---
 
