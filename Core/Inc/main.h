@@ -61,6 +61,18 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define BTN_USER_Pin GPIO_PIN_13
 #define BTN_USER_GPIO_Port GPIOC
+#define HC_TRIG_Pin GPIO_PIN_14
+#define HC_TRIG_GPIO_Port GPIOC
+#define HC_ECHO_Pin GPIO_PIN_15
+#define HC_ECHO_GPIO_Port GPIOC
+#define IR_CH1_Pin GPIO_PIN_0
+#define IR_CH1_GPIO_Port GPIOC
+#define IR_CH2_Pin GPIO_PIN_1
+#define IR_CH2_GPIO_Port GPIOC
+#define IR_CH3_Pin GPIO_PIN_2
+#define IR_CH3_GPIO_Port GPIOC
+#define IR_CH4_Pin GPIO_PIN_3
+#define IR_CH4_GPIO_Port GPIOC
 #define M2_AIN2_Pin GPIO_PIN_4
 #define M2_AIN2_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
@@ -81,6 +93,8 @@ void Error_Handler(void);
 #define TFT_LEFT_CS_GPIO_Port GPIOB
 #define TFT_LEFT_DC_Pin GPIO_PIN_14
 #define TFT_LEFT_DC_GPIO_Port GPIOB
+#define IR_CH5_Pin GPIO_PIN_6
+#define IR_CH5_GPIO_Port GPIOC
 #define M2_PWMB_Pin GPIO_PIN_7
 #define M2_PWMB_GPIO_Port GPIOC
 #define M2_STDBY_Pin GPIO_PIN_8
@@ -91,8 +105,14 @@ void Error_Handler(void);
 #define M2_PWMA_GPIO_Port GPIOA
 #define TFT_CENTER_DC_Pin GPIO_PIN_15
 #define TFT_CENTER_DC_GPIO_Port GPIOA
+#define IR_CH6_Pin GPIO_PIN_10
+#define IR_CH6_GPIO_Port GPIOC
 #define TFT_RST_Pin GPIO_PIN_11
 #define TFT_RST_GPIO_Port GPIOC
+#define IR_CH7_Pin GPIO_PIN_12
+#define IR_CH7_GPIO_Port GPIOC
+#define IR_CH8_Pin GPIO_PIN_2
+#define IR_CH8_GPIO_Port GPIOD
 #define M1_AIN2_Pin GPIO_PIN_3
 #define M1_AIN2_GPIO_Port GPIOB
 #define M1_PWMA_Pin GPIO_PIN_4

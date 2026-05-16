@@ -110,21 +110,10 @@ Taktowanie zegara: **16 MHz HSI**.
 | ECHO         | PC15       | CN7 pin 27   | GPIO Input + dzielnik 1kΩ/2kΩ |
 
 
-### Konfiguracja CubeMX (wymagana – jeszcze nie skonfigurowane w .ioc)
+### Konfiguracja CubeMX (skonfigurowane w .ioc)
 
-**Krok 1 – zwolnij PC14/PC15 (wyłącz LSE):**
-1. Przejdź do: **System Core → RCC**.
-2. Low Speed Clock (LSE): **Disable**.
-
-**Krok 2 – TRIG (PC14 → GPIO Output):**
-1. Kliknij PC14 w widoku Pinout → `GPIO_Output`.
-2. User Label: `HC_TRIG`.
-3. GPIO output level: Low, Push Pull, No pull.
-
-**Krok 3 – ECHO (PC15 → GPIO Input):**
-1. Kliknij PC15 → `GPIO_Input`.
-2. User Label: `HC_ECHO`.
-3. GPIO Pull-up/Pull-down: **No pull**.
+- PC14 → `GPIO_Output`, User Label: `HC_TRIG` (LSE wyłączone, pin zwolniony).
+- PC15 → `GPIO_Input`, User Label: `HC_ECHO`, No pull (LSE wyłączone, pin zwolniony).
 
 ---
 
@@ -134,23 +123,20 @@ Taktowanie zegara: **16 MHz HSI**.
 
 Zasilanie: **5V**
 
-| Pin Nucleo | Kanał   | Złącze     |
-|------------|---------|------------|
-| PC0        | IR1_CH1 | CN8 A5     |
-| PC1        | IR1_CH2 | CN8 A4     |
-| PC2        | IR1_CH3 | CN7 pin 35 |
-| PC3        | IR1_CH4 | CN7 pin 37 |
-| PC6        | IR1_CH5 | CN10 pin 4 |
-| PC10       | IR1_CH6 | CN7 pin 1  |
-| PC12       | IR1_CH7 | CN7 pin 3  |
-| PD2        | IR1_CH8 | CN7 pin 4  |
+| Pin Nucleo | Kanał  | Złącze     |
+|------------|--------|------------|
+| PC0        | IR_CH1 | CN8 A5     |
+| PC1        | IR_CH2 | CN8 A4     |
+| PC2        | IR_CH3 | CN7 pin 35 |
+| PC3        | IR_CH4 | CN7 pin 37 |
+| PC6        | IR_CH5 | CN10 pin 4 |
+| PC10       | IR_CH6 | CN7 pin 1  |
+| PC12       | IR_CH7 | CN7 pin 3  |
+| PD2        | IR_CH8 | CN7 pin 4  |
 
-### Konfiguracja CubeMX (wymagana – jeszcze nie skonfigurowane w .ioc)
+### Konfiguracja CubeMX (skonfigurowane w .ioc)
 
-Dla każdego z pinów: PC0, PC1, PC2, PC3, PC6, PC10, PC12, PD2:
-1. Kliknij pin w widoku Pinout → `GPIO_Input`.
-2. GPIO Pull-up/Pull-down: **Pull-up**.
-3. Nadaj etykiety: `IR1_CH1` … `IR1_CH8`.
+Wszystkie 8 pinów skonfigurowane jako `GPIO_Input`, Pull-up, etykiety `IR_CH1` … `IR_CH8`.
 
 ---
 
