@@ -1,11 +1,3 @@
-# Projekt RC_CAR Ferrari SF90 XX Stradale
-
-## Autorzy
-
-- Jakub Chmielewski 21432
-- Kacper Siemieniako 21560
-- Bartek Mikołajczyk 21513
-
 ## Cel projektu
 
 Budowa samochodu zdalnie sterowanego RC w karoserii Ferrari SF90 XX Stradale, sterowanego za pomocą kontrolera PlayStation 5. Projekt oparty na mikrokontrolerze STM32 Nucleo-F401RE z modułem Raspberry Pi Zero 2W jako mostem Bluetooth. Pojazd porusza się autonomicznie po linii (8-kanałowy czujnik IR) oraz omija przeszkody za pomocą czujnika ultradźwiękowego HC-SR04.
@@ -15,7 +7,7 @@ Budowa samochodu zdalnie sterowanego RC w karoserii Ferrari SF90 XX Stradale, st
 ## Główne funkcje
 
 - Sterowanie przez pad PS5 (Bluetooth via Raspberry Pi Zero 2W)
-- Jazda po linii (line follower) – 8-kanałowy czujnik IR (2 moduły)
+- Jazda po linii (line follower) – 8-kanałowy czujnik IR (1 moduł)
 - Omijanie przeszkód – czujnik HC-SR04
 - Wyświetlacz trybu jazdy – lewy okrągły TFT 1.28" GC9A01
 - Wyświetlacz prędkości – prawy okrągły TFT 1.28" GC9A01
@@ -37,7 +29,7 @@ Budowa samochodu zdalnie sterowanego RC w karoserii Ferrari SF90 XX Stradale, st
 | Koła 1,9-calowe (65 mm, opony 12 mm Hex) | 4x |
 | Sześciokątny adapter do kół (12mm/3mm – Pololu 2682) | 4x |
 | Czujnik HC-SR04 | 1x |
-| 8-kanałowy moduł czujnika śledzenia IR (detektor podczerwieni) | 2x |
+| 8-kanałowy moduł czujnika śledzenia IR (detektor podczerwieni) | 1x |
 | Wyświetlacz 1.28 TFT (240x240, IC:GC9A01) | 2x |
 | Wyświetlacz 2.0 TFT SPI (GMT020-02-7P) | 1x |
 | Koszyk na akumulatory 3x18650 | 1x |
@@ -48,344 +40,23 @@ Budowa samochodu zdalnie sterowanego RC w karoserii Ferrari SF90 XX Stradale, st
 
 ---
 
-## Schemat podłączenia
-
-### Digital Servo 21G Model S007M
-
-| Przewód        | Pin Nucleo / Złącze | Funkcja     |
-|----------------|---------------------|-------------|
-| Żółty (sygnał) | PB6 [TIM4 CH1, AF2] | Sygnał PWM  |
-| Czerwony (VCC) | +5V (CN7 pin 18)    | VCC         |
-| Brązowy (GND)  | GND                 | Masa        |
-
-> Zworka: PA6–PA5
-
-### Silniki N20 – Mostek 1 (TB6612FNG)
-
-| Pin mostka | Pin Nucleo | Złącze | Funkcja         |
-|------------|------------|--------|-----------------|
-| STDBY      | PB0        | CN7    | GPIO Output     |
-| AIN1       | PB1        | CN7    | GPIO Output     |
-| AIN2       | PB3        | CN7    | GPIO Output     |
-| PWMA       | PB4        | CN7    | TIM3 CH1 AF2    |
-| BIN1       | PB5        | CN7    | GPIO Output     |
-| BIN2       | PB8        | CN7    | GPIO Output     |
-| PWMB       | PB9        | CN7    | TIM11 CH1 AF3   |
-
-### Silniki N20 – Mostek 2 (TB6612FNG)
-
-| Pin mostka | Pin Nucleo | Złącze | Funkcja         |
-|------------|------------|--------|-----------------|
-| STDBY      | PC8        | CN10   | GPIO Output     |
-| AIN1       | PC9        | CN10   | GPIO Output     |
-| AIN2       | PA4        | CN10   | GPIO Output     |
-| PWMA       | PA8        | CN10   | TIM1 CH1 AF1    |
-| BIN1       | PC4        | CN10   | GPIO Output     |
-| BIN2       | PC5        | CN10   | GPIO Output     |
-| PWMB       | PC7        | CN10   | TIM3 CH2 AF2    |
-
-### Przycisk użytkownika
-
-| Komponent | Pin Nucleo | Funkcja               |
-|-----------|------------|-----------------------|
-| B1 (USER) | PC13       | GPIO Input, Pull-up   |
-
-### Czujnik HC-SR04
-
-> Wymagane: System Core → RCC → LSE: **Disable** (zwalnia PC14/PC15).
-
-| Pin czujnika | Pin Nucleo | Złącze       | Uwaga                          |
-|-------------|------------|--------------|--------------------------------|
-| VCC         | 5V         | CN10 U5V     | HC-SR04 wymaga 5V              |
-| GND         | GND        | CN10 GND     |                                |
-| TRIG        | PC14       | CN7 pin 25   | GPIO Output                    |
-| ECHO        | PC15       | CN7 pin 27   | **Dzielnik napięcia 1kΩ/2kΩ** |
-
-ECHO (5V) → dzielnik → PC15 (3.3V):
-```
-HC_ECHO (5V) ──[1 kΩ]──┬── PC15 (STM32)
-                        │
-                      [2 kΩ]
-                        │
-                       GND
-```
-
-### Czujniki IR (2× moduł 8-kanałowy)
-
-Moduł 1:
-
-| Pin  | Kanał   | Złącze       |
-|------|---------|--------------|
-| PC0  | IR1_CH1 | CN8 A5       |
-| PC1  | IR1_CH2 | CN8 A4       |
-| PC2  | IR1_CH3 | CN7 pin 35   |
-| PC3  | IR1_CH4 | CN7 pin 37   |
-| PC6  | IR1_CH5 | CN10 pin 4   |
-| PC10 | IR1_CH6 | CN7 pin 1    |
-| PC12 | IR1_CH7 | CN7 pin 3    |
-| PD2  | IR1_CH8 | CN7 pin 4    |
-
-Moduł 2:
-
-| Pin  | Kanał   | Złącze          | Uwaga                          |
-|------|---------|-----------------|--------------------------------|
-| PA0  | IR2_CH1 | CN8 A0          |                                |
-| PA1  | IR2_CH2 | CN8 A1          |                                |
-| PA2  | IR2_CH3 | CN8 A2          |                                |
-| PA3  | IR2_CH4 | CN8 A3 / CN9 D0 |                                |
-| PA6  | IR2_CH5 | CN9 D12         |                                |
-| PA7  | IR2_CH6 | CN9 D11         |                                |
-| PA11 | IR2_CH7 | CN10 pin 14     | USB_DM – USB nieużywane        |
-| PA12 | IR2_CH8 | CN10 pin 12     | USB_DP – USB nieużywane        |
-
-> Konfiguracja CubeMX: GPIO Input, Pull-up. Dla PA11/PA12: USB_OTG_FS → Disable.
-
-### Wyświetlacze TFT (SPI2, na tyle pojazdu)
-
-Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
-
-| Pin  | Sygnał        | Opis                                      |
-|------|---------------|-------------------------------------------|
-| PB13 | SPI2_SCK      | Zegar SPI (AF5)                           |
-| PB15 | SPI2_MOSI     | Dane do wyświetlaczy (AF5)                |
-| PB12 | TFT_LEFT_CS   | Chip select – lewy GC9A01 (tryb jazdy)    |
-| PB14 | TFT_LEFT_DC   | Data/Command – lewy GC9A01               |
-| PB10 | TFT_RIGHT_CS  | Chip select – prawy GC9A01 (prędkość)    |
-| PB7  | TFT_RIGHT_DC  | Data/Command – prawy GC9A01              |
-| PB2  | TFT_CENTER_CS | Chip select – środkowy GMT020-02-7P (PS5) |
-| PA15 | TFT_CENTER_DC | Data/Command – środkowy GMT020-02-7P     |
-| PC11 | TFT_RST       | Reset wspólny (wszystkie 3)               |
-
-> Konfiguracja CubeMX: SPI2 Transmit Only Master, Prescaler /4 (~21 MHz). PB2/PB7/PB10/PB12/PB14/PA15/PC11: GPIO Output push-pull.
-
-### Moduł GPS GY-GPS6MV2 (Raspberry Pi Zero 2 W)
-
-RPi Zero 2 W ma tylko 2 sprzętowe UART-y (oba zajęte przez STM32 i Bluetooth). GPS używa software serial przez `pigpio` na GPIO23.
-
-| Pin GPS (GY-GPS6MV2)  | Pin Raspberry Pi Zero 2 W | Fizyczny pin | Opis                             |
-|-----------------------|---------------------------|--------------|----------------------------------|
-| VCC                   | 5V                        | Pin 2 lub 4  | Zasilanie (regulator 3,3 V na module) |
-| GND                   | GND                       | Pin 6        | Masa                             |
-| TXD                   | GPIO23                    | Pin 16       | GPS TX → RPi RX (software serial) |
-| RXD                   | —                         | —            | Niepotrzebne                     |
-
-Wymaga: daemon `pigpiod` (`sudo systemctl enable pigpiod && sudo systemctl start pigpiod`).
-
-### Podsumowanie zajętych timerów
-
-| Timer    | Kanał | Pin | Zastosowanie      |
-|----------|-------|-----|-------------------|
-| TIM1     | CH1   | PA8 | Mostek2 PWMA      |
-| TIM3     | CH1   | PB4 | Mostek1 PWMA      |
-| TIM3     | CH2   | PC7 | Mostek2 PWMB      |
-| TIM4     | CH1   | PB6 | Servo S007M       |
-| TIM11    | CH1   | PB9 | Mostek1 PWMB      |
-
----
-
-### Konfiguracja STM32CubeMX – wyświetlacze TFT i czujniki IR
-
-```
-⚙️ Wymagana konfiguracja w STM32CubeMX (.ioc):
-
-══════════════════════════════════════════
- 1. SPI2 – magistrala wyświetlaczy TFT
-══════════════════════════════════════════
-
-1. Przejdź do: Connectivity → SPI2.
-2. Mode: Transmit Only Master.
-3. Hardware NSS Signal: Disable.
-4. Parameter Settings:
-   - Prescaler: /4  (→ ~21 MHz przy APB1 84 MHz)
-   - CPOL: Low
-   - CPHA: 1 Edge
-   - First Bit: MSB First
-   - Data Size: 8 Bits
-5. W zakładce Pinout upewnij się, że:
-   - PB13 → SPI2_SCK  (AF5)
-   - PB15 → SPI2_MOSI (AF5)
-   (PB14 → TFT_LEFT_DC – używany jako GPIO Output)
-
-══════════════════════════════════════════
- 2. GPIO Output – piny CS / DC / RST wyświetlaczy
-══════════════════════════════════════════
-
-Dla każdego z poniższych pinów:
-  PB2, PB7, PB10, PB12, PB14, PA15, PC11
-
-Kliknij pin w widoku Pinout → GPIO_Output, następnie
-w GPIO Settings ustaw:
-   - GPIO output level: High  (CS/RST domyślnie nieaktywne)
-   - GPIO mode: Output Push Pull
-   - GPIO Pull-up/Pull-down: No pull-up and no pull-down
-   - Maximum output speed: High
-
-Nadaj etykiety (User Label):
-   PB12 → TFT_LEFT_CS
-   PB14 → TFT_LEFT_DC
-   PB10 → TFT_RIGHT_CS
-   PB7  → TFT_RIGHT_DC
-   PB2  → TFT_CENTER_CS
-   PA15 → TFT_CENTER_DC
-   PC11 → TFT_RST
-
-══════════════════════════════════════════
- 3. GPIO Input – czujniki IR (Moduł 1, 8 kanałów)
-══════════════════════════════════════════
-
-Dla pinów: PC0, PC1, PC2, PC3, PC6, PC10, PC12, PD2
-
-Kliknij pin w widoku Pinout → GPIO_Input, następnie
-w GPIO Settings ustaw:
-   - GPIO mode: Input mode
-   - GPIO Pull-up/Pull-down: Pull-up
-
-Nadaj etykiety:
-   PC0  → IR1_CH1
-   PC1  → IR1_CH2
-   PC2  → IR1_CH3
-   PC3  → IR1_CH4
-   PC6  → IR1_CH5
-   PC10 → IR1_CH6
-   PC12 → IR1_CH7
-   PD2  → IR1_CH8
-
-══════════════════════════════════════════
- 4. GPIO Input – czujniki IR (Moduł 2, 8 kanałów)
-══════════════════════════════════════════
-
-KROK 4a – wyłącz USB (zwolnij PA11/PA12):
-   Przejdź do: Connectivity → USB_OTG_FS
-   Mode: Disable
-   (zwalnia PA11 i PA12 na GPIO)
-
-KROK 4b – przypisz piny:
-Dla pinów: PA0, PA1, PA2, PA3, PA6, PA7, PA11, PA12
-
-Kliknij pin w widoku Pinout → GPIO_Input, następnie
-w GPIO Settings ustaw:
-   - GPIO mode: Input mode
-   - GPIO Pull-up/Pull-down: Pull-up
-
-Nadaj etykiety:
-   PA0  → IR2_CH1
-   PA1  → IR2_CH2
-   PA2  → IR2_CH3
-   PA3  → IR2_CH4
-   PA6  → IR2_CH5
-   PA7  → IR2_CH6
-   PA11 → IR2_CH7
-   PA12 → IR2_CH8
-
-══════════════════════════════════════════
- 5. HC-SR04 – czujnik ultradźwiękowy
-══════════════════════════════════════════
-
-KROK 5a – wyłącz LSE (zwolnij PC14/PC15):
-   Przejdź do: System Core → RCC
-   Low Speed Clock (LSE): Disable
-
-KROK 5b – TRIG (PC14 → GPIO Output):
-   Kliknij PC14 → GPIO_Output
-   User Label: HC_TRIG
-   GPIO output level: Low, Push Pull, No pull
-
-KROK 5c – ECHO (PC15 → GPIO Input, przez dzielnik 1kΩ/2kΩ):
-   Kliknij PC15 → GPIO_Input
-   User Label: HC_ECHO
-   GPIO Pull-up/Pull-down: No pull-up and no pull-down
-
-   Podłącz ECHO czujnika (5V) przez dzielnik napięcia:
-   HC_ECHO (5V) ──[1 kΩ]──┬── PC15 (STM32)
-                           │
-                         [2 kΩ]
-                           │
-                          GND
-
-══════════════════════════════════════════
- 6. Generowanie kodu
-══════════════════════════════════════════
-
-Kliknij Project → Generate Code.
-Daj znać gdy gotowe – wtedy napiszę kod korzystający
-z tej konfiguracji.
-```
-
----
-
 ## Platforma
 
-**STM32 Nucleo F401RE** – mikrokontroler STM32F401RE, rdzeń ARM Cortex-M4, zasilanie 3,3V / 5V przez złącza CN7/CN10.
-
-**Raspberry Pi Zero 2W** – most Bluetooth/UART między kontrolerem PS5 a STM32. Odbiera dane z pada przez Bluetooth i przesyła komendy do STM32 przez UART.
-
-**Zasilanie:** Koszyk na 3 ogniwa 18650, wskaźnik poziomu baterii DC7-40V, ładowanie przez złącze USB-C 3A.
+Mikrokontroler **STM32 Nucleo F401RE** (ARM Cortex-M4, 16 MHz HSI) + **Raspberry Pi Zero 2W** jako most Bluetooth/UART. Szczegółowe parametry obu płytek: [`Docs/HARDWARE.md`](Docs/HARDWARE.md).
 
 ---
 
-## Plan realizacji projektu
+## Dokumentacja techniczna
 
-Moduły są realizowane **w podanej kolejności** – każdy następny zaczyna się dopiero po zatwierdzeniu i zmergowaniu poprzedniego do `main`. Po zatwierdzeniu przez użytkownika Claude oznacza moduł jako ukończony (✅).
+Przed rozpoczęciem pracy nad jakimkolwiek modułem sprzętowym Claude **zawsze** czyta odpowiednie pliki dokumentacji:
 
----
+| Plik | Kiedy czytać |
+|------|--------------|
+| [`Docs/HARDWARE.md`](Docs/HARDWARE.md) | Przed pisaniem kodu dla serwa, silników, TFT, HC-SR04, IR, UART |
+| [`Docs/RASPBERRY_CONFIG.md`](Docs/RASPBERRY_CONFIG.md) | Przed pracą z Raspberry Pi, GPS, PS5 |
+| `Project_CAR.ioc` | Jako ostateczne źródło prawdy dla pinów i timerów |
 
-### Moduł 1 – Mechanika robota
-
-- [ ] **Cel:** Robot jest złożony i gotowy do programowania – jedzie prosto, skręca, zatrzymuje się na komendę. Serwo obraca się do zadanej pozycji.
-
-  **Kryteria ukończenia:**
-  - Serwo SG90 obraca się płynnie do skrajnych pozycji (lewo/prawo/środek).
-  - Wszystkie 4 silniki N20 kręcą się w dobrym kierunku przy komendach przód/tył.
-  - Sterowniki TB6612FNG nie grzeją się ponad normę, zasilanie stabilne.
-  - Robot fizycznie jedzie prosto bez wyraźnego znoszenia.
-
-  > Claude sam decyduje od czego zacząć (np. najpierw samo obrócenie serwa jedną funkcją, potem jeden silnik, potem para, potem wszystkie cztery) i przedstawia plan kroków na początku pracy nad modułem.
-
----
-
-### Moduł 2 – Jazda zaprogramowaną sekwencją
-
-- [ ] **Cel:** Robot wykonuje z góry zaprogramowaną sekwencję 10 rozkazów (przód, tył, lewo, prawo) bez ingerencji użytkownika.
-
-  **Kryteria ukończenia:**
-  - Zdefiniowane co najmniej 4 typy rozkazów: `FORWARD`, `BACKWARD`, `LEFT`, `RIGHT`.
-  - Każdy rozkaz ma parametr czasu trwania [ms].
-  - Sekwencja 10 kroków wykonuje się jednorazowo po starcie i zatrzymuje po ostatnim kroku.
-  - Robot powtarzalnie przejeżdża tę samą trasę przy każdym resecie.
-
-  > Claude sam decyduje o kolejności kroków implementacji i przedstawia plan na początku pracy nad modułem.
-
----
-
-### Moduł 3 – Jazda po linii (line follower)
-
-- [ ] **Cel:** Robot autonomicznie śledzi czarną linię na białym tle, radząc sobie z zakrętem prostym (90°) oraz łukiem o promieniu 15 cm.
-
-  **Kryteria ukończenia:**
-  - Robot nie gubi linii na prostym odcinku.
-  - Robot poprawnie pokonuje zakręt złamany pod kątem 90°.
-  - Robot poprawnie pokonuje łuk o promieniu 15 cm.
-  - Po zgubieniu linii robot zatrzymuje się (nie jedzie w nieskończoność).
-
-  > Claude sam decyduje o kolejności kroków implementacji (np. najpierw odczyt jednego czujnika, potem logika korekcji, potem obsługa zakrętu 90°) i przedstawia plan na początku pracy nad modułem.
-
----
-
-### Moduł 4 – Sterowanie przez pad PS5 (Bluetooth) *(moduł końcowy)*
-
-- [ ] **Cel:** Użytkownik steruje robotem w czasie rzeczywistym za pomocą pada PS5 przez Bluetooth. Możliwe jest przełączanie między trybem ręcznym a autonomicznym (line follower).
-
-  **Kryteria ukończenia:**
-  - Pad PS5 paruje się z robotem i połączenie jest stabilne.
-  - Joystick / D-pad steruje kierunkiem i prędkością jazdy.
-  - Jeden z przycisków zatrzymuje robota awaryjnie.
-  - Możliwe przełączenie między trybem ręcznym (pad) a autonomicznym (line follower).
-
-  > Claude sam decyduje o kolejności kroków implementacji i przedstawia plan na początku pracy nad modułem.
-
----
-
-> **Instrukcja dla Claude:** Przed rozpoczęciem pracy nad modułem przedstaw użytkownikowi swój plan kroków implementacji (od najprostszego do najbardziej złożonego) i poczekaj na akceptację. Po zatwierdzeniu modułu przez użytkownika zaktualizuj listę – zmień `- [ ]` na `- [x]` oraz dodaj ✅ przed nagłówkiem modułu (np. `### ✅ Moduł 1`). Następnie przejdź do kolejnego modułu.
+**Reguła weryfikacji pinów:** Claude **nigdy nie przyjmuje pinów ani parametrów timerów z pamięci** — każda wartość musi być zweryfikowana w `Project_CAR.ioc` lub `Docs/HARDWARE.md` przed użyciem w kodzie.
 
 ---
 
@@ -401,14 +72,14 @@ Moduły są realizowane **w podanej kolejności** – każdy następny zaczyna s
 
 1. Otwórz plik .ioc w STM32CubeMX.
 2. Przejdź do zakładki „Pinout & Configuration".
-3. W sekcji „Timers" wybierz TIM3.
+3. W sekcji „Timers" wybierz <TIMER>.
 4. Ustaw „Clock Source" na „Internal Clock".
-5. W „Channel 1" wybierz „PWM Generation CH1".
+5. W „Channel N" wybierz „PWM Generation CHN".
 6. Przejdź do „Parameter Settings" i ustaw:
-   - Prescaler: 83
-   - Counter Period: 999
-   - Pulse: 0
-7. W zakładce „Pinout" upewnij się, że PA6 jest przypisany do TIM3_CH1.
+   - Prescaler: <wartość>
+   - Counter Period: <wartość>
+   - Pulse: <wartość>
+7. W zakładce „Pinout" upewnij się, że <PIN> jest przypisany do <TIMER_CHN>.
 8. Kliknij „Generate Code".
 
 Daj znać gdy gotowe – wtedy napiszę kod korzystający z tej konfiguracji.
@@ -444,7 +115,7 @@ Daj znać gdy gotowe – wtedy napiszę kod korzystający z tej konfiguracji.
    - **Co zostało zrobione** – lista zmian i dodanych plików.
    - **Jak to ręcznie przetestować** – konkretne kroki weryfikacji na sprzęcie lub w debuggerze.
    - **Jak to łączy się z resztą projektu** – zależności od innych modułów, piny, peryferia.
-4. **Oczekiwanie na zatwierdzenie** – Claude czeka na potwierdzenie od użytkownika, że wszystko działa poprawnie. Nie wykonuje żadnych dalszych działań bez tej zgody.
+4. **Oczekiwanie na zatwierdzenie** – Claude czeka na potwierdzenie od użytkownika, że wszystko działa poprawnie. Nie wykonuje żadnych dalszych działań bez tej zgody. Dopiero gdy otrzyma zatwierdzenie robi claude robi commit.
 5. **Merge i push** – po otrzymaniu zatwierdzenia Claude merguje branch do `main` i wypycha zmiany do GitHuba (`git push origin main`).
 
 ### Przykładowy komunikat po zakończeniu feature'a
