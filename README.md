@@ -39,14 +39,13 @@ Zdalnie sterowany samochód RC w karoserii Ferrari SF90 XX Stradale, zbudowany n
 
 ---
 
-## Postęp realizacji
+## Model 3D karoserii
 
-| Moduł | Opis                                        | Status     |
-|-------|---------------------------------------------|------------|
-| 1     | Mechanika – servo + 4 silniki N20           | W toku     |
-| 2     | Jazda zaprogramowaną sekwencją 10 kroków    | Oczekuje   |
-| 3     | Jazda po linii (line follower, czujnik IR)  | Oczekuje   |
-| 4     | Sterowanie przez pad PS5 (Bluetooth)        | Oczekuje   |
+Karoseria pojazdu została wydrukowana w 3D na podstawie gotowego modelu dostępnego na platformie Cults3D:
+
+**[2025 Ferrari SF90 XX Stradale – Scale Hollow Shell Body (RC Car Body)](https://cults3d.com/en/3d-model/game/2025-ferrari-sf90-xx-stradale-scale-hollow-shell-body-detailed-rc-car-body-s)**
+
+Dziękujemy autorowi modelu za udostępnienie szczegółowej karoserii przeznaczonej do samochodów RC.
 
 ---
 
