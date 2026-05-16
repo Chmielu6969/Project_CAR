@@ -10,7 +10,9 @@
 
 **Raspberry Pi Zero 2W**
 - Most Bluetooth/UART między kontrolerem PS5 a STM32
-- Skrypty Python odbierają dane z pada DualSense przez Bluetooth i przesyłają komendy przez UART (GPIO14 TX → PA10 RX STM32)
+- UART0/ttyAMA0 (GPIO14/GPIO15) → STM32 @ 115200 baud
+- Bluetooth (dtoverlay=miniuart-bt) → Kontroler PS5 DualSense
+- GPS GY-GPS6MV2 → GPIO23 (software serial pigpio) @ 9600 baud
 
 **Zasilanie**
 - Koszyk na 3 ogniwa 18650
@@ -123,20 +125,19 @@ Konfiguracja CubeMX: GPIO Input, Pull-up. Dla PA11/PA12: USB nie włączone. Dla
 
 ### Moduł GPS GY-GPS6MV2 (NEO-6M) → Raspberry Pi Zero 2W
 
-Moduł GPS podłączony jest do Raspberry Pi Zero 2W przez osobny port UART
-(inny niż port komunikacji ze STM32). Raspberry odczytuje zdania NMEA ($GPRMC / $GPVTG)
-i przesyła prędkość do STM32 komendą `SPEED:<km/h>\n`.
+RPi Zero 2W ma tylko 2 sprzętowe UART-y (oba zajęte przez STM32 i Bluetooth),
+dlatego GPS używa software serial przez `pigpio` na GPIO23. Raspberry odczytuje zdania NMEA
+($GPRMC / $GNRMC) i przesyła prędkość do STM32 komendą `GPS_SPEED_MS:<m/s>\n`.
 
-| Pin GPS       | Raspberry Pi Zero 2W          | Opis                        |
-|---------------|-------------------------------|-----------------------------|
-| VCC           | 3.3 V (pin 1)                 | Zasilanie                   |
-| GND           | GND (pin 6)                   | Masa                        |
-| TX (GPS→RPi)  | RX – port zależny od dtoverlay | Odbiór NMEA, 9600 baud     |
-| RX (GPS←RPi)  | TX – port zależny od dtoverlay | Opcjonalnie (konfiguracja) |
+| Pin GPS (GY-GPS6MV2) | Pin Raspberry Pi Zero 2W | Fizyczny pin | Opis                              |
+|----------------------|--------------------------|--------------|-----------------------------------|
+| VCC                  | 5V                       | Pin 2 lub 4  | Zasilanie (regulator 3,3 V na module) |
+| GND                  | GND                      | Pin 6        | Masa                              |
+| TXD                  | GPIO23                   | Pin 16       | GPS TX → RPi RX (software serial) |
+| RXD                  | —                        | —            | Niepotrzebne                      |
 
-> Port GPS na Raspberry Pi ustawiany przez `dtoverlay` lub adapter USB-UART
-> (domyślny `GPS_PORT` w skrypcie: `/dev/ttyUSB0`).
-> Skrypt odczytu: `Raspberry/gps/gps_reader.py`.
+> Wymaga: `pigpiod` daemon (`sudo systemctl enable pigpiod && sudo systemctl start pigpiod`).
+> Skrypt odczytu: `Raspberry/gps/gps_reader.py`. Dokumentacja konfiguracji: `Raspberry/gps/GPS_SETUP.md`.
 
 ### Wyświetlacze TFT (SPI2, na tyle pojazdu)
 
@@ -194,12 +195,13 @@ Project_CAR/
 │       └── main.c           # Inicjalizacja peryferiów, główna pętla sterowania
 ├── Raspberry/               # Skrypty Python – most PS5 Bluetooth → STM32 UART
 │   ├── ps5/
-│   │   ├── ps5_controller.py
-│   │   └── ps5_test.py
+│   │   ├── ps5_controller.py # PS5Controller – stan kontrolera DualSense przez Bluetooth
+│   │   └── ps5_test.py       # Skrypt testowy kontrolera
 │   ├── uart/
-│   │   └── uart_sender.py
+│   │   └── uart_sender.py    # Wysyła komendy PS5 + GPS_SPEED_MS do STM32 przez UART
 │   ├── gps/
-│   │   └── gps_reader.py    # Odczyt GY-GPS6MV2, wysyłanie SPEED: do STM32
+│   │   ├── gps_reader.py     # GPSReader – odczyt NMEA z GY-GPS6MV2, prędkość w m/s
+│   │   └── GPS_SETUP.md      # Dokumentacja konfiguracji GPS (pigpio, wiring)
 │   └── README.md
 ├── Drivers/                 # STM32 HAL + CMSIS (generowane przez CubeMX)
 ├── Project_CAR.ioc          # Konfiguracja STM32CubeMX
@@ -255,3 +257,7 @@ i parsuje je. Obsługiwane komendy: `LSX`, `LSY`, `RSX`, `RSY`, `L2`, `R2`,
 ### `servo.c` – sterownik serwa
 
 Generuje sygnał PWM 50 Hz przez TIM4 CH1 dla serwomechanizmu cyfrowego Digital Servo 21G S007M. Funkcja `Servo_SetPulse(us)` przyjmuje szerokość impulsu w mikrosekundach (500–2500 µs). Stałe `SERVO_LEFT_US`, `SERVO_CENTER_US`, `SERVO_RIGHT_US` definiują skrajne pozycje. Sterowanie z padu PS5 (oś LSX) realizuje wygładzanie wykładnicze z deadbandem 3 µs – zapobiega to buzzowaniu charakterystycznemu dla serw cyfrowych.
+
+### `gps_reader.py` – odczyt GPS (Raspberry Pi)
+
+Klasa `GPSReader` uruchamia wątek tła, który czyta bajty z GPIO23 przez software serial `pigpio` (9600 baud) i parsuje zdania `$GPRMC`/`$GNRMC` przy użyciu `pynmea2`. Prędkość nad ziemią (w węzłach) jest przeliczana na m/s (`× 0.51444`) i udostępniana przez `get_speed_ms() -> float`. Brak sygnału GPS lub niedostępny daemon `pigpiod` zwraca `0.0`. Wynik jest dołączany do strumienia komend UART jako `GPS_SPEED_MS:X.XX\n`.

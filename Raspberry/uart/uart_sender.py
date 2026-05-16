@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 uart_sender.py - reads PS5 controller state and sends commands to STM32 via UART
-Command format: <CMD:VALUE>\n  e.g. "CROSS:1\n", "LSX:0.75\n"
+Command format: <CMD:VALUE>\n  e.g. "CROSS:1\n", "LSX:0.75\n", "GPS_SPEED_MS:1.23\n"
 Buttons are edge-based: CROSS:1 on press, CROSS:0 on release.
 Axes/triggers are sent only when non-zero.
 Handles UART disconnection and controller disconnection gracefully.
@@ -12,9 +12,12 @@ import time
 import serial
 from pathlib import Path
 
-# Add ps5 directory to path using absolute path based on this file's location
-sys.path.append(str(Path(__file__).resolve().parent.parent / 'ps5'))
+_ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(_ROOT / 'ps5'))
+sys.path.append(str(_ROOT))
+
 from ps5_controller import PS5Controller
+from gps.gps_reader import GPSReader
 
 # UART config
 UART_PORT        = '/dev/ttyAMA0'
@@ -79,11 +82,14 @@ def main():
     controller = PS5Controller()
     controller.connect()
 
+    gps = GPSReader()
+    gps.start()
+
     ser = open_uart()
     last_uart_attempt = time.monotonic()
     prev_state = {}  # empty → first press will always generate :1 edge
 
-    print("Sending controller commands to STM32. Press Ctrl+C to exit.\n")
+    print("Sending controller commands + GPS speed to STM32. Press Ctrl+C to exit.\n")
 
     try:
         while True:
@@ -100,6 +106,7 @@ def main():
             # Only send if both controller and UART are connected
             if controller.connected and ser is not None:
                 commands = format_commands(controller.state, prev_state)
+                commands.append(f"GPS_SPEED_MS:{gps.get_speed_ms():.2f}")
                 for cmd in commands:
                     try:
                         ser.write(f"{cmd}\n".encode())
@@ -117,6 +124,7 @@ def main():
     except KeyboardInterrupt:
         print("\nExiting.")
     finally:
+        gps.stop()
         if ser is not None:
             ser.close()
         controller.disconnect()

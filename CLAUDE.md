@@ -44,6 +44,7 @@ Budowa samochodu zdalnie sterowanego RC w karoserii Ferrari SF90 XX Stradale, st
 | Wskaźnik poziomu baterii DC7-40V (Lipo/Acid) | 1x |
 | Złącze żeńskie typu C (Port ładowania 3A) | 1x |
 | RC Car Metal Magnet Body Shell | 4x |
+| Moduł GPS GY-GPS6MV2 (u-blox NEO-6M) | 1x |
 
 ---
 
@@ -156,6 +157,19 @@ Wspólna magistrala SPI2, różnicowane przez osobne piny CS:
 | PC11 | TFT_RST       | Reset wspólny (wszystkie 3)               |
 
 > Konfiguracja CubeMX: SPI2 Transmit Only Master, Prescaler /4 (~21 MHz). PB2/PB7/PB10/PB12/PB14/PA15/PC11: GPIO Output push-pull.
+
+### Moduł GPS GY-GPS6MV2 (Raspberry Pi Zero 2 W)
+
+RPi Zero 2 W ma tylko 2 sprzętowe UART-y (oba zajęte przez STM32 i Bluetooth). GPS używa software serial przez `pigpio` na GPIO23.
+
+| Pin GPS (GY-GPS6MV2)  | Pin Raspberry Pi Zero 2 W | Fizyczny pin | Opis                             |
+|-----------------------|---------------------------|--------------|----------------------------------|
+| VCC                   | 5V                        | Pin 2 lub 4  | Zasilanie (regulator 3,3 V na module) |
+| GND                   | GND                       | Pin 6        | Masa                             |
+| TXD                   | GPIO23                    | Pin 16       | GPS TX → RPi RX (software serial) |
+| RXD                   | —                         | —            | Niepotrzebne                     |
+
+Wymaga: daemon `pigpiod` (`sudo systemctl enable pigpiod && sudo systemctl start pigpiod`).
 
 ### Podsumowanie zajętych timerów
 

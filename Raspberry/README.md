@@ -49,7 +49,7 @@ exit
 ```bash
 cd ~/Desktop/Project_CAR/Raspberry
 python3 -m venv venv
-venv/bin/pip install pygame pyserial
+venv/bin/pip install pygame pyserial pynmea2 pigpio
 ```
 
 ### 4. Podłączenie UART (Raspberry Pi → STM32)
@@ -62,7 +62,52 @@ venv/bin/pip install pygame pyserial
 
 > **Napięcia:** Raspberry Pi i STM32 pracują na 3.3 V – można łączyć bezpośrednio bez konwertera poziomów.
 
-### 5. Zainstaluj serwis systemd (autostart)
+### 5. Podłącz moduł GPS GY-GPS6MV2
+
+RPi Zero 2 W ma tylko 2 sprzętowe UART-y (oba zajęte przez STM32 i Bluetooth), dlatego GPS używa **software serial przez pigpio** na GPIO23.
+
+#### Schemat podłączenia
+
+| Pin GPS (GY-GPS6MV2)  | Pin Raspberry Pi Zero 2 W | Fizyczny pin | Opis                   |
+|-----------------------|---------------------------|--------------|------------------------|
+| VCC                   | 5V                        | Pin 2 lub 4  | Zasilanie (moduł ma własny regulator 3,3 V) |
+| GND                   | GND                       | Pin 6        | Masa                   |
+| TXD                   | GPIO23                    | Pin 16       | GPS TX → RPi RX (software serial) |
+| RXD                   | —                         | —            | Niepotrzebne           |
+
+#### Instalacja i autostart pigpiod
+
+```bash
+sudo apt install pigpio
+sudo systemctl enable pigpiod
+sudo systemctl start pigpiod
+```
+
+Sprawdź czy działa:
+
+```bash
+sudo systemctl status pigpiod
+```
+
+#### Usunięcie zbędnego overlay z `/boot/firmware/config.txt`
+
+Jeśli wcześniej dodałeś `dtoverlay=uart3`, usuń tę linię — na RPi Zero 2 W nie ma sprzętowego UART3 i overlay nie działa. Sekcja `[all]` powinna wyglądać:
+
+```ini
+[all]
+enable_uart=1
+dtoverlay=miniuart-bt
+```
+
+Weryfikacja pigpio:
+
+```bash
+python3 -c "import pigpio; pi=pigpio.pi(); print('pigpio OK:', pi.connected); pi.stop()"
+```
+
+---
+
+### 6. Zainstaluj serwis systemd (autostart)
 
 ```bash
 sudo cp controller_uart.service /etc/systemd/system/
@@ -95,11 +140,14 @@ venv/bin/python uart/uart_sender.py
 
 ```
 Raspberry/
+├── gps/
+│   ├── gps_reader.py           # Klasa GPSReader – odczyt NMEA, prędkość w km/h
+│   └── __init__.py
 ├── ps5/
 │   ├── ps5_controller.py       # Klasa PS5Controller – przechowuje stan kontrolera
 │   └── ps5_test.py             # Skrypt testowy – wypisuje aktywne wejścia w konsoli
 ├── uart/
-│   ├── uart_sender.py          # Wysyła komendy z pada przez UART do STM32
+│   ├── uart_sender.py          # Wysyła komendy z pada + prędkość GPS przez UART do STM32
 │   └── __init__.py
 ├── controller_uart.service     # Plik serwisu systemd (autostart po restarcie)
 └── README.md                   # Ten plik
@@ -111,13 +159,14 @@ Raspberry/
 
 Komendy wysyłane przez UART do STM32 mają format `NAZWA:WARTOŚĆ\n`, np.:
 
-| Komenda        | Opis                                  |
-|----------------|---------------------------------------|
-| `LSX:0.75\n`   | Lewy drążek poziomo, wartość `0.75`   |
-| `LSY:-0.50\n`  | Lewy drążek pionowo, wartość `-0.50`  |
-| `CROSS:1\n`    | Wciśnięty krzyżyk                    |
-| `R2:0.85\n`    | Spust R2, wartość `0.85`              |
-| `DPAD_UP:1\n`  | Krzyżak góra                         |
+| Komenda           | Opis                                        |
+|-------------------|---------------------------------------------|
+| `LSX:0.75\n`      | Lewy drążek poziomo, wartość `0.75`         |
+| `LSY:-0.50\n`     | Lewy drążek pionowo, wartość `-0.50`        |
+| `CROSS:1\n`       | Wciśnięty krzyżyk                          |
+| `R2:0.85\n`       | Spust R2, wartość `0.85`                    |
+| `DPAD_UP:1\n`     | Krzyżak góra                               |
+| `GPS_SPEED:42.3\n`| Prędkość z GPS w km/h (co 50 ms)           |
 
 ---
 

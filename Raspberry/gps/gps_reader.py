@@ -1,133 +1,122 @@
 #!/usr/bin/env python3
 """
-gps_reader.py – odczytuje prędkość z GY-GPS6MV2 (NEO-6M) i wysyła komendę
-SPEED:<km/h> do STM32 przez UART.
+gps_reader.py - reads NMEA sentences from GY-GPS6MV2 via software serial (pigpio).
 
-Uruchomienie samodzielne (bez kontrolera PS5):
-    venv/bin/python gps/gps_reader.py
-
-Uwaga: STM_PORT (/dev/ttyAMA0) jest dzielony z uart_sender.py.
-       Nie uruchamiaj obu skryptów jednocześnie – otwierają ten sam port.
-       Jeśli chcesz korzystać z GPS równolegle z padem PS5, zintegruj
-       odczyt GPS jako wątek w uart_sender.py.
+Hardware: GY-GPS6MV2 TXD → GPIO23 (physical pin 16) @ 9600 baud.
+Requires: pigpio daemon (sudo systemctl start pigpiod) + pynmea2
 """
 
-import serial
+import threading
 import time
-import sys
+import pigpio
+import pynmea2
 
-# ─── Konfiguracja portów ───────────────────────────────────────────────────────
-# GPS_PORT – port, na którym podłączony jest GY-GPS6MV2.
-# Dostosuj do swojego ustawienia (dtoverlay / USB-serial adapter):
-#   /dev/ttyUSB0   – adapter USB-UART
-#   /dev/serial1   – sprzętowy UART Raspberry Pi (AMA0 lub ttyS0)
-#   /dev/ttyAMA1   – dodatkowy UART przez dtoverlay (uart3 / uart4 / uart5)
-GPS_PORT = "/dev/ttyUSB0"
-GPS_BAUD = 9600
-
-# STM32 UART – ten sam co uart_sender.py
-STM_PORT = "/dev/ttyAMA0"
-STM_BAUD = 115200
-
-KNOTS_TO_KMH = 1.852
-SEND_INTERVAL = 1.0  # GPS aktualizuje się z częstotliwością 1 Hz
+GPS_GPIO     = 23
+GPS_BAUDRATE = 9600
+KNOTS_TO_MS  = 0.51444  # 1 knot = 0.51444 m/s
 
 
-def parse_nmea(line: str) -> float | None:
-    """
-    Parsuje zdanie GPRMC lub GPVTG; zwraca prędkość w km/h lub None.
-    Nie weryfikuje sumy kontrolnej NMEA – zakłada poprawny sygnał sprzętowy.
-    """
-    if not line.startswith('$'):
-        return None
+class GPSReader:
+    """Background thread that reads NMEA sentences and exposes current speed."""
 
-    # Odrzuć sumę kontrolną (*XX)
-    if '*' in line:
-        line = line[:line.index('*')]
+    def __init__(self, gpio=GPS_GPIO, baudrate=GPS_BAUDRATE):
+        self._gpio     = gpio
+        self._baudrate = baudrate
+        self._speed_ms = 0.0
+        self._lock     = threading.Lock()
+        self._running  = False
+        self._thread   = None
+        self._pi       = None
+        self._buf      = b''
 
-    parts = line.split(',')
-    tag = parts[0][1:]  # usuń '$'
+    def start(self):
+        """Start background reading thread."""
+        self._running = True
+        self._thread  = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+        print(f"GPS reader started on GPIO{self._gpio} @ {self._baudrate} baud (pigpio)")
 
-    if tag in ('GPRMC', 'GNRMC'):
-        # Pole [2] = status: A = aktywny fix, V = nieważny
-        if len(parts) < 8 or parts[2] != 'A':
-            return None
-        try:
-            return float(parts[7]) * KNOTS_TO_KMH
-        except ValueError:
-            return None
+    def stop(self):
+        """Signal background thread to stop."""
+        self._running = False
 
-    if tag in ('GPVTG', 'GNVTG'):
-        # Pole [9] = prędkość w km/h (oznaczone 'K' w polu [10])
-        if len(parts) < 10 or not parts[9]:
-            return None
-        try:
-            return float(parts[9])
-        except ValueError:
-            return None
+    def get_speed_ms(self):
+        """Return last known speed in m/s (0.0 when no GPS fix)."""
+        with self._lock:
+            return self._speed_ms
 
-    return None
+    # ------------------------------------------------------------------
 
+    def _run(self):
+        while self._running:
+            if self._pi is None:
+                self._pi = self._connect()
+                if self._pi is None:
+                    time.sleep(5)
+                    continue
 
-def open_port(path: str, baud: int) -> serial.Serial | None:
-    try:
-        return serial.Serial(path, baud, timeout=2)
-    except serial.SerialException as e:
-        print(f"Błąd otwarcia {path}: {e}")
-        return None
-
-
-def main() -> None:
-    print(f"GPS reader: {GPS_PORT} @ {GPS_BAUD} baud")
-    print(f"STM32 UART: {STM_PORT} @ {STM_BAUD} baud\n")
-
-    gps = open_port(GPS_PORT, GPS_BAUD)
-    if gps is None:
-        sys.exit(1)
-
-    stm = open_port(STM_PORT, STM_BAUD)
-    if stm is None:
-        gps.close()
-        sys.exit(1)
-
-    speed_kmh: float = 0.0
-    last_send: float = time.monotonic() - SEND_INTERVAL  # wyślij od razu na starcie
-
-    print("Działam. Ctrl+C aby zakończyć.\n")
-
-    try:
-        while True:
-            # ── Odczyt zdania NMEA ──────────────────────────────────────────────
             try:
-                raw = gps.readline()
-                line = raw.decode('ascii', errors='ignore').strip()
-            except serial.SerialException as e:
-                print(f"Błąd odczytu GPS: {e}")
-                time.sleep(1)
-                continue
+                count, data = self._pi.bb_serial_read(self._gpio)
+                if count > 0:
+                    self._buf += bytes(data)
+                    self._process_buffer()
+                else:
+                    time.sleep(0.05)
+            except Exception as e:
+                print(f"GPS read error: {e}")
+                self._disconnect()
+                time.sleep(5)
 
-            result = parse_nmea(line)
-            if result is not None:
-                speed_kmh = result
-                print(f"GPS: {speed_kmh:.1f} km/h")
+        self._disconnect()
 
-            # ── Wysyłanie komendy SPEED co SEND_INTERVAL sekund ────────────────
-            now = time.monotonic()
-            if now - last_send >= SEND_INTERVAL:
-                cmd = f"SPEED:{speed_kmh:.1f}\n"
-                try:
-                    stm.write(cmd.encode('ascii'))
-                    print(f"[SENT] {cmd.strip()}")
-                except serial.SerialException as e:
-                    print(f"Błąd zapisu UART: {e}")
-                last_send = now
+    def _connect(self):
+        try:
+            pi = pigpio.pi()
+            if not pi.connected:
+                print("GPS: pigpio daemon not running – start with: sudo systemctl start pigpiod")
+                return None
+            # Close leftover state from any previous run before opening
+            try:
+                pi.bb_serial_read_close(self._gpio)
+            except Exception:
+                pass
+            pi.bb_serial_read_open(self._gpio, self._baudrate, 8)
+            print(f"GPS software serial opened on GPIO{self._gpio}")
+            return pi
+        except Exception as e:
+            print(f"GPS pigpio init error: {e}")
+            try:
+                pi.stop()
+            except Exception:
+                pass
+            return None
 
-    except KeyboardInterrupt:
-        print("\nZakończono.")
-    finally:
-        gps.close()
-        stm.close()
+    def _disconnect(self):
+        if self._pi is not None:
+            try:
+                self._pi.bb_serial_read_close(self._gpio)
+                self._pi.stop()
+            except Exception:
+                pass
+            self._pi = None
 
+    def _process_buffer(self):
+        while b'\n' in self._buf:
+            line, self._buf = self._buf.split(b'\n', 1)
+            sentence = line.decode('ascii', errors='replace').strip()
+            self._parse_sentence(sentence)
 
-if __name__ == "__main__":
-    main()
+    def _parse_sentence(self, sentence):
+        if not (sentence.startswith('$GPRMC') or sentence.startswith('$GNRMC')):
+            return
+        try:
+            msg = pynmea2.parse(sentence)
+            if msg.status == 'A' and msg.spd_over_grnd is not None:
+                ms = float(msg.spd_over_grnd) * KNOTS_TO_MS
+                with self._lock:
+                    self._speed_ms = ms
+            else:
+                with self._lock:
+                    self._speed_ms = 0.0
+        except (pynmea2.ParseError, AttributeError, ValueError):
+            pass
